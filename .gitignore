@@ -1,0 +1,8 @@
+*.db
+*.exe
+.vscode
+program
+*.json
+*.txt
+trx/key_store
+tron

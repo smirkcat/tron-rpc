@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"sync"
 	"time"
@@ -70,26 +71,64 @@ func newGrpcClient(url string) *service.GrpcClient {
 	return service.NewGrpcClient(url)
 }
 
+// 后期改为 长链接
 func getMaineNode() *service.GrpcClient {
 	node := newGrpcClient(nodemain)
 	err := node.Start()
 	if err != nil {
-		fmt.Println(err)
+		log.Errorf("main node %s err %s", nodemain, err.Error())
 	}
 	return node
 }
 
+// GenerateRandomNumber 生成count个[start,end)结束的不重复的随机数 为了用户抽奖 TODO
+func GenerateRandomNumber(start int, end int, count int) []int {
+	//范围检查
+	if end < start || (end-start) < count {
+		return nil
+	}
+	//存放结果的slice
+	nums := make([]int, 0)
+	//随机数生成器，加入时间戳保证每次生成的随机数不一样
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	for len(nums) < count {
+		//生成随机数
+		num := r.Intn((end - start)) + start
+
+		//查重
+		exist := false
+		for _, v := range nums {
+			if v == num {
+				exist = true
+				break
+			}
+		}
+
+		if !exist {
+			nums = append(nums, num)
+		}
+	}
+	return nums
+}
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
+
 func getRandOneNode() *service.GrpcClient {
-	for i := range nodeall {
-		node := newGrpcClient(nodeall[i])
+	lens := len(nodeall)
+	for i := 0; i < lens; i++ {
+		nodeurl := nodeall[rand.Intn(lens)]
+		node := newGrpcClient(nodeurl)
 		err := node.Start()
 		if err != nil {
-			fmt.Println("some node ", err)
+			log.Errorf("node %s err %s", nodeurl, err.Error())
 			continue
 		}
 		return node
 	}
-	return nil
+	log.Warn("use main node")
+	return getMaineNode()
 }
 
 // InitLog 初始化日志文件
@@ -102,16 +141,16 @@ func InitLog() {
 }
 
 // 判断当前属于什么合约
-func chargeContract(contract string) string {
+func chargeContract(contract string) (string, int32) {
 	if contract == "trx" || contract == "" {
-		return Trx
+		return Trx, trxdecimal
 	}
 	if v := mapContract[contract]; v != nil {
 		if ok, _ := mapContractType[v.Type]; ok {
-			return v.Type
+			return v.Type, v.Decimal
 		}
 	}
-	return "NONE"
+	return "NONE", 18
 }
 
 // IsContract 判断当前合约是否存在
@@ -152,7 +191,7 @@ func getWalletInfo() (err error) {
 	} else {
 		blockHeightTop = re.BeginSyncNum
 		walletInfo.BlockHeight = blockHeightTop
-		walletInfo.Blocks = blockHeightTop
+		walletInfo.Blocks = targetHeight
 		walletInfo.Connections = int64(re.CurrentConnectCount)
 		walletInfo.Difficulty = re.TotalFlow
 	}
@@ -167,9 +206,9 @@ func getWalletInfo() (err error) {
 	} else {
 		walletInfo.Balance = json.Number(decimal.New(ac.Balance, -6).String())
 		for _, v := range mapContract {
-			if ac.AssetV2 != nil {
+			if v.Type == Trc10 && ac.AssetV2 != nil {
 				if vv, ok := ac.AssetV2[v.Contract]; ok {
-					walletInfo.ContractBalance[v.Contract] = json.Number(decimal.New(vv, -6).String())
+					walletInfo.ContractBalance[v.Contract] = json.Number(decimal.New(vv, -v.Decimal).String())
 					continue
 				}
 			}
@@ -177,11 +216,14 @@ func getWalletInfo() (err error) {
 	}
 
 	for _, v := range mapContract {
+		if v.Type != Trc20 {
+			continue
+		}
 		re, err := node.GetConstantResultOfContract(mainAccout, v.Contract, processBalanceOfParameter(mainAddr))
 		if err != nil || len(re) < 1 {
 			continue
 		}
-		walletInfo.ContractBalance[v.Contract] = json.Number(decimal.New(processBalanceOfData(re[0]), -6).String())
+		walletInfo.ContractBalance[v.Contract] = json.Number(decimal.New(processBalanceOfData(re[0]), -v.Decimal).String())
 	}
 	lockInfo.Unlock()
 	return
@@ -214,30 +256,30 @@ func getBalance() error {
 	return nil
 }
 
-// trx 这种方式第一次可能会消耗0.1trx 暂时还不清楚
+// 获取余额
 func getBalanceByAddress(contract, addr string) (decimal.Decimal, error) {
-	typs := chargeContract(contract)
+	typs, decimalnum := chargeContract(contract)
 	if typs == Trc20 {
 		balance, err := getTrc20BalanceByAddress(contract, addr, mainAccout)
-		return decimal.New(balance, -6), err
+		return decimal.New(balance, -decimalnum), err
 	}
 	node := getMaineNode()
 	defer node.Conn.Close()
 	ac, err := node.GetAccount(addr)
 	if err != nil {
-		return decimal.Decimal{}, err
+		return decimal.Zero, err
 	}
 	switch typs {
 	case Trx:
-		return decimal.New(ac.Balance, -6), err
+		return decimal.New(ac.Balance, -decimalnum), err
 	case Trc10:
 		if ac.AssetV2 != nil {
 			if v, ok := ac.AssetV2[contract]; ok {
-				return decimal.New(v, -6), err
+				return decimal.New(v, -decimalnum), err
 			}
 		}
 	}
-	return decimal.Decimal{}, nil
+	return decimal.Zero, nil
 }
 
 func getTrc20BalanceByAddress(contract, addr string, ac *ecdsa.PrivateKey) (int64, error) {

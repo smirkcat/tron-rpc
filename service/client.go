@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
-	"google.golang.org/grpc"
 	"log"
 	"strconv"
 	"time"
@@ -14,6 +13,8 @@ import (
 	"tron/common/hexutil"
 	"tron/core"
 	"tron/util"
+
+	"google.golang.org/grpc"
 )
 
 type GrpcClient struct {
@@ -39,7 +40,11 @@ func (g *GrpcClient) Start() error {
 }
 
 func timeoutContext() context.Context {
-	ctx, _ := context.WithTimeout(context.Background(), time.Second*15)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
+	go func() {
+		time.Sleep(time.Second * 60)
+		cancel()
+	}()
 	return ctx
 }
 
@@ -307,11 +312,11 @@ func (g *GrpcClient) Transfer(ownerKey *ecdsa.PrivateKey, toAddress string, amou
 		GetRawData().GetContract()) == 0 {
 		return txid, fmt.Errorf("transfer error: invalid transaction")
 	}
-	err = util.SignTransaction(transferTransaction, ownerKey)
+	hash, err := util.SignTransaction(transferTransaction, ownerKey)
 	if err != nil {
 		return txid, err
 	}
-	txid = hexutil.Encode(transferTransactionEx.Txid)
+	txid = hexutil.Encode(hash)
 
 	result, err := g.Client.BroadcastTransaction(timeoutContext(),
 		transferTransaction)
@@ -343,11 +348,11 @@ func (g *GrpcClient) TransferAsset(ownerKey *ecdsa.PrivateKey, AssetName, toAddr
 		GetRawData().GetContract()) == 0 {
 		return txid, fmt.Errorf("transfer error: invalid transaction")
 	}
-	err = util.SignTransaction(transferTransaction, ownerKey)
+	hash, err := util.SignTransaction(transferTransaction, ownerKey)
 	if err != nil {
 		return txid, err
 	}
-	txid = hexutil.Encode(transferTransactionEx.Txid)
+	txid = hexutil.Encode(hash)
 
 	result, err := g.Client.BroadcastTransaction(timeoutContext(),
 		transferTransaction)
@@ -360,7 +365,7 @@ func (g *GrpcClient) TransferAsset(ownerKey *ecdsa.PrivateKey, AssetName, toAddr
 	return txid, err
 }
 
-func (g *GrpcClient) TransferContract(ownerKey *ecdsa.PrivateKey, Contract string, data []byte) (string, error) {
+func (g *GrpcClient) TransferContract(ownerKey *ecdsa.PrivateKey, Contract string, data []byte, feeLimit int64) (string, error) {
 	transferContract := new(core.TriggerSmartContract)
 	transferContract.OwnerAddress = crypto.PubkeyToAddress(ownerKey.
 		PublicKey).Bytes()
@@ -376,11 +381,15 @@ func (g *GrpcClient) TransferContract(ownerKey *ecdsa.PrivateKey, Contract strin
 		GetRawData().GetContract()) == 0 {
 		return txid, fmt.Errorf("transfer error: invalid transaction")
 	}
-	err = util.SignTransaction(transferTransaction, ownerKey)
+	if feeLimit > 0 {
+		transferTransaction.RawData.FeeLimit = feeLimit
+	}
+
+	hash, err := util.SignTransaction(transferTransaction, ownerKey)
 	if err != nil {
 		return txid, err
 	}
-	txid = hexutil.Encode(transferTransactionEx.Txid)
+	txid = hexutil.Encode(hash)
 
 	result, err := g.Client.BroadcastTransaction(timeoutContext(),
 		transferTransaction)

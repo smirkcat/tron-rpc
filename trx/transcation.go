@@ -11,6 +11,7 @@ import (
 	"tron/common/hexutil"
 	"tron/core"
 	"tron/log"
+	"tron/service"
 
 	wallet "tron/util"
 
@@ -21,14 +22,23 @@ import (
 
 // 每次最多100 个
 func getBlockWithHeights(start, end int64) error {
-	node := getRandOneNode()
-	defer node.Conn.Close()
 	if end-start < 1 {
 		return nil
 	}
+	var node *service.GrpcClient
 againblock:
+	if node != nil {
+		node.Conn.Close()
+	}
+	select {
+	case <-ctx.Done():
+		return nil
+	default:
+	}
+	node = getRandOneNode()
 	block, err := node.GetBlockByLimitNext(start, end)
 	if err != nil {
+		// rpc error: code = DeadlineExceeded desc = context deadline exceeded will get again
 		log.Warnf("node get bolck start %d end %d GetBlockByLimitNext err: %v will get again", start, end, err)
 		time.Sleep(time.Second * 5)
 		goto againblock
@@ -40,6 +50,7 @@ againblock:
 		goto againblock
 	}
 	processBlocks(block)
+	node.Conn.Close()
 	return nil
 }
 
@@ -65,7 +76,19 @@ func processBlock(block *api.BlockExtention) {
 	node := getRandOneNode()
 	defer node.Conn.Close()
 	for _, v := range block.Transactions {
+		// transaction.ret.contractRe
 		txid := hexutil.Encode(v.Txid)
+		// https://tronscan.org/#/transaction/fede1aa9e5c5d7bd179fd62e23bdd11e3c1edd0ca51e41070e34a026d6a42569
+		if v.Result == nil || !v.Result.Result {
+			continue
+		}
+		rets := v.Transaction.Ret
+		if len(rets) < 1 || rets[0].ContractRet != core.Transaction_Result_SUCCESS {
+			continue
+		}
+
+		//fmt.Println(txid)
+		log.Debugf("process block height %d txid %s", height, txid)
 		for _, v1 := range v.Transaction.RawData.Contract {
 			if v1.Type == core.Transaction_Contract_TransferContract { //转账合约
 				// trx 转账
@@ -77,8 +100,7 @@ func processBlock(block *api.BlockExtention) {
 				}
 				form := base58.EncodeCheck(unObj.GetOwnerAddress())
 				to := base58.EncodeCheck(unObj.GetToAddress())
-				processTransaction(Trx, txid, form, to, height, unObj.GetAmount(), 0)
-				// break
+				processTransaction(node, Trx, txid, form, to, height, unObj.GetAmount())
 			} else if v1.Type == core.Transaction_Contract_TriggerSmartContract { //调用智能合约
 				// trc20 转账
 				unObj := &core.TriggerSmartContract{}
@@ -87,15 +109,16 @@ func processBlock(block *api.BlockExtention) {
 					log.Errorf("parse Contract %v err: %v", v1, err)
 					continue
 				}
+				// res, _ := json.Marshal(unObj)
+				// fmt.Println(string(res))
 				contract := base58.EncodeCheck(unObj.GetContractAddress())
 				form := base58.EncodeCheck(unObj.GetOwnerAddress())
 				data := unObj.GetData()
 				// unObj.Data  https://goethereumbook.org/en/transfer-tokens/ 参考eth 操作
 				to, amount, flag := processTransferData(data)
 				if flag { // 只有调用了 transfer(address,uint256) 才是转账
-					processTransaction(contract, txid, form, to, height, amount, 0)
+					processTransaction(node, contract, txid, form, to, height, amount)
 				}
-				// break
 			} else if v1.Type == core.Transaction_Contract_TransferAssetContract { //通证转账合约
 				// trc10 转账
 				unObj := &core.TransferAssetContract{}
@@ -107,8 +130,7 @@ func processBlock(block *api.BlockExtention) {
 				contract := base58.EncodeCheck(unObj.GetAssetName())
 				form := base58.EncodeCheck(unObj.GetOwnerAddress())
 				to := base58.EncodeCheck(unObj.GetToAddress())
-				processTransaction(contract, txid, form, to, height, unObj.GetAmount(), 0)
-				// break
+				processTransaction(node, contract, txid, form, to, height, unObj.GetAmount())
 			}
 		}
 	}
@@ -127,10 +149,13 @@ var mapFunctionTcc20 = map[string]string{
 // 处理合约参数
 func processTransferData(trc20 []byte) (to string, amount int64, flag bool) {
 	if len(trc20) >= 68 {
+		fmt.Println(hexutil.Encode(trc20))
 		if hexutil.Encode(trc20[:4]) != "a9059cbb" {
 			return
 		}
-		to = base58.EncodeCheck(common.TrimLeftZeroes(trc20[4:36]))
+		// 多1位41
+		trc20[15] = 65
+		to = base58.EncodeCheck(trc20[15:36])
 		amount = new(big.Int).SetBytes(common.TrimLeftZeroes(trc20[36:68])).Int64()
 		flag = true
 	}
@@ -141,7 +166,7 @@ func processTransferData(trc20 []byte) (to string, amount int64, flag bool) {
 func processTransferParameter(to string, amount int64) (data []byte) {
 	methodID, _ := hexutil.Decode("a9059cbb")
 	addr, _ := base58.DecodeCheck(to)
-	paddedAddress := common.LeftPadBytes(addr, 32)
+	paddedAddress := common.LeftPadBytes(addr[1:], 32)
 	amountBig := new(big.Int).SetInt64(amount)
 	paddedAmount := common.LeftPadBytes(amountBig.Bytes(), 32)
 	data = append(data, methodID...)
@@ -162,44 +187,56 @@ func processBalanceOfData(trc20 []byte) (amount int64) {
 func processBalanceOfParameter(addr string) (data []byte) {
 	methodID, _ := hexutil.Decode("70a08231")
 	add, _ := base58.DecodeCheck(addr)
-	paddedAddress := common.LeftPadBytes(add, 32)
+	paddedAddress := common.LeftPadBytes(add[1:], 32)
 	data = append(data, methodID...)
 	data = append(data, paddedAddress...)
 	return
 }
 
-func processTransaction(contract, txid, from, to string, blockheight, amount, fee int64) {
-	// fmt.Printf("contract %s txid %s from %s to %s, blockheight %d amount %d fee %d\n",
-	// contract, txid, from, to, blockheight, amount, fee)
+func processTransaction(node *service.GrpcClient, contract, txid, from, to string, blockheight, amount int64) {
+
 	// 合约是否存在
 	if !IsContract(contract) {
 		return
 	}
+	// fmt.Printf("contract %s txid %s from %s to %s, blockheight %d amount %d \n",
+	// 	contract, txid, from, to, blockheight, amount)
 	var types string
 	if from == mainAddr { // 提币 or 中转
-		ac, _ := dbengine.SearchAccount(to)
+		ac, err := dbengine.SearchAccount(to)
+		if err != nil {
+			log.Error(err)
+		}
 		if ac != nil {
-			types = Collect
-			// 目前这种情况不会发生
+			types = Collect // 手续费划转
 		} else {
 			types = Send
 		}
-	} else if to == mainAddr {
-		ac, _ := dbengine.SearchAccount(from)
+	} else if to == mainAddr { // 归集记录
+		ac, err := dbengine.SearchAccount(from)
+		if err != nil {
+			log.Error(err)
+		}
 		if ac != nil {
 			types = Collect
-			collect(contract, from) // 归集检测
 		} else {
 			types = ReceiveOther
 		}
 	} else {
-		acf, _ := dbengine.SearchAccount(from)
-		act, _ := dbengine.SearchAccount(to)
+		acf, err := dbengine.SearchAccount(from)
+		if err != nil {
+			log.Error(err)
+		}
+		act, err := dbengine.SearchAccount(to)
+		if err != nil {
+			log.Error(err)
+		}
 		if act != nil { // 收币地址
 			if acf != nil {
 				types = CollectOwn // 站内转账 暂时不可能触发
 			} else {
 				types = Receive
+				go collect(contract, to) // 归集检测
 			}
 		} else {
 			if acf != nil {
@@ -209,38 +246,50 @@ func processTransaction(contract, txid, from, to string, blockheight, amount, fe
 			}
 		}
 	}
+
+	// 手续费处理
+	transinfo, err := node.GetTransactionInfoById(txid)
+	var fee int64
+	if err != nil {
+		log.Error(err)
+	} else {
+		fee = transinfo.GetFee()
+	}
+	_, decimalnum := chargeContract(contract)
 	var trans = &Transactions{
 		TxID:        txid,
 		Contract:    contract,
 		Type:        types,
 		BlockHeight: blockheight,
-		Amount:      decimal.New(amount, -6).String(),
-		Fee:         decimal.New(fee, -6).String(),
+		Amount:      decimal.New(amount, -decimalnum).String(),
+		Fee:         decimal.New(fee, -trxdecimal).String(),
 		Timestamp:   time.Now().Unix(),
 		Address:     to,
 		FromAddress: from,
 	}
 
-	_, err := dbengine.InsertTransactions(trans)
+	_, err = dbengine.InsertTransactions(trans)
 	log.Infof("InsertTransactions %v err %v ", trans, err)
 }
 
-var num60 = decimal.New(1, 6)
+// 转账合约燃烧 trx数量 单位 sun 默认0.5trx 转账一笔大概消耗能量 0.26trx
+var feelimit int64 = 500000
 
 // 转币
 func send(key *ecdsa.PrivateKey, contract, to string, amount decimal.Decimal) (string, error) {
 	node := getRandOneNode()
 	defer node.Conn.Close()
-	amount6, _ := amount.Mul(num60).Float64()
-	typs := chargeContract(contract)
+	typs, decimalnum := chargeContract(contract)
+	var amountdecimal = decimal.New(1, decimalnum)
+	amountac, _ := amount.Mul(amountdecimal).Float64()
 	switch typs {
 	case Trc10:
-		return node.TransferAsset(key, contract, to, int64(amount6))
+		return node.TransferAsset(key, contract, to, int64(amountac))
 	case Trx:
-		return node.Transfer(key, to, int64(amount6))
+		return node.Transfer(key, to, int64(amountac))
 	case Trc20:
-		data := processTransferParameter(to, int64(amount6))
-		return node.TransferContract(key, contract, data)
+		data := processTransferParameter(to, int64(amountac))
+		return node.TransferContract(key, contract, data, feelimit)
 	}
 	return "", fmt.Errorf("the type %s not support now", typs)
 }
@@ -248,6 +297,11 @@ func send(key *ecdsa.PrivateKey, contract, to string, amount decimal.Decimal) (s
 // 往外转 提币
 func sendOut(contract, to string, amount decimal.Decimal) (string, error) {
 	return send(mainAccout, contract, to, amount)
+}
+
+// 往地址转手续费
+func sendFee(to string, amount decimal.Decimal) (string, error) {
+	return send(mainAccout, Trx, to, amount)
 }
 
 // 归集

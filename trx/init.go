@@ -20,8 +20,9 @@ var ctx, canceltask = context.WithCancel(context.Background())
 var wg sync.WaitGroup
 
 var port = "9290"
+var trxdecimal int32 = 6
 
-var minScanBlock int64 = 991186 // 最小 扫描高度
+var minScanBlock int64 = 23513066 // 最小 扫描高度
 var targetHeight int64
 var blockHeightTop int64
 var minAmount decimal.Decimal
@@ -90,12 +91,29 @@ func Init() {
 		goroutineNumScan = globalConf.Scantraderecord.GoroutineNum
 	}
 
+	if globalConf.Client.Count > 0 && globalConf.Client.Count < 100 {
+		count = globalConf.Client.Count
+	}
+
+	if globalConf.Client.Feelimit > 0 && globalConf.Client.Feelimit < 1000000 {
+		feelimit = globalConf.Client.Feelimit
+	}
+
 	mainAddr = globalConf.Client.MainAddr
 	mainAccout, err = loadAccountWithUUID(globalConf.Client.MainAddr, globalConf.Client.Password)
 	if err != nil {
 		log.Error(err)
 		os.Exit(1)
 	}
+
+	dbengine, err = InitDB(globalConf.Client.DBAddr)
+	if err != nil {
+		log.Error(err)
+		os.Exit(1)
+	}
+	targetHeight = getlastBlock()
+
+	log.Info("lastblock:", targetHeight)
 
 	err = getWalletInfo()
 	if err != nil {
@@ -104,16 +122,6 @@ func Init() {
 	}
 
 	log.Info("walletInfo:", walletInfo)
-
-	dbengine, err = InitDB(globalConf.Client.DBAddr)
-	if err != nil {
-		log.Error(err)
-		os.Exit(1)
-	}
-
-	targetHeight = getlastBlock()
-
-	log.Info("lastblock:", targetHeight)
 
 	task()
 }
@@ -183,7 +191,6 @@ func task() {
 //获取默认的数据库配置
 func getConfig() []byte {
 	return []byte(`
-
 # grpc.trongrid.io:50051
 # 3.225.171.164:50051
 # grpc.shasta.trongrid.io:50051
@@ -203,7 +210,8 @@ type="trc20" # 合约类型
 contract="TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t" # trc20 合约地址
 issuer="THPvaUhoh2Qn2y9THCZML3H815hhFhn5YC" # 发行者地址 暂时没有用到
 port="9292" # 监听端口
-min_amount=0.1 # 最小归集数量
+min_amount=5 # 最小归集数量
+decimal=6 # 币种小数位
 
 # [[contract]]
 # name="BTT"
@@ -221,7 +229,24 @@ min_amount=10 # 最小归集钱包余额 单位TRX 后面 6个零 1TRX =10^6 SUN
 time_interval_sec=5 # 扫描交易记录检测间隔 单位秒
 # 扫描交易记录起始位置 如果配置为正数 
 # 如果为负数 则取绝对值 从绝对值位置开始扫描，不取最大值开始扫描
-min_scan_block = 991186
+min_scan_block = 23520251
 goroutine_num=4 # 每次扫描开的协程数量
+# 主节点
+# "3.225.171.164:50051"
+# "52.53.189.99:50051" 
+# "18.196.99.16:50051" 
+# "34.253.187.192:50051" 
+# "52.56.56.149:50051" 
+# "35.180.51.163:50051" 
+# "54.252.224.209:50051" 
+# "18.228.15.36:50051" 
+# "52.15.93.92:50051" 
+# "34.220.77.106:50051" 
+# "13.127.47.162:50051" 
+# "13.124.62.58:50051" 
+# "35.182.229.162:50051" 
+# "18.209.42.127:50051" 
+# "3.218.137.187:50051" 
+# "34.237.210.82:50051" 
 `)
 }

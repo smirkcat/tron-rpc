@@ -22,6 +22,8 @@ type Client struct {
 	KeyStore string   `toml:"key_store"` // 用户钱包保存路径
 	Port     string   `toml:"port"`      // 监听端口 trx
 	LogLevel string   `toml:"logLevel"`  // 日志等级
+	Count    int64    `toml:"count"`     // 批量查询交易记录个数
+	Feelimit int64    `toml:"feelimit"`  // 转账合约消耗sun个数 建议设置500000
 }
 
 // Scantraderecord 扫描交易记录配置
@@ -45,5 +47,6 @@ type Contract struct {
 	Type                string          `toml:"type"`       // TRC20 和 TRC10
 	Contract            string          `toml:"contract"`   // 合约地址或者合约ID
 	Issuer              string          `toml:"issuer"`     // 合约创建者
+	Decimal             int32           `toml:"decimal"`    // 合约小数位
 	CollectionMinAmount decimal.Decimal `toml:"min_amount"` // 代币最小归集数目
 }

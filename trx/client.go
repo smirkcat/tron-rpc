@@ -10,6 +10,8 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 	"tron/common/base58"
@@ -181,6 +183,16 @@ func getWalletInfoContract(contract string) wallet.Info {
 	return info
 }
 
+func processBlockHeight(block string) int64 {
+	num := strings.Split(block, ",")[0]
+	heights := strings.Split(num, ":")
+	if len(heights) < 1 {
+		return 0
+	}
+	height, _ := strconv.ParseInt(heights[1], 10, 64)
+	return height
+}
+
 // GetWalletInfo 钱包信息
 func getWalletInfo() (err error) {
 	node := getMaineNode()
@@ -189,7 +201,12 @@ func getWalletInfo() (err error) {
 	if err1 != nil {
 		err = err1
 	} else {
-		blockHeightTop = re.BeginSyncNum
+		tmp := processBlockHeight(re.Block)
+		if tmp > 0 {
+			blockHeightTop = tmp
+		} else {
+			blockHeightTop = re.BeginSyncNum
+		}
 		walletInfo.BlockHeight = blockHeightTop
 		walletInfo.Blocks = targetHeight
 		walletInfo.Connections = int64(re.CurrentConnectCount)
@@ -199,7 +216,7 @@ func getWalletInfo() (err error) {
 	lockInfo.Lock()
 	if err1 != nil {
 		if err != nil {
-			err = fmt.Errorf("node: %s\nbalance: %s\n", err, err1)
+			err = fmt.Errorf("node: %s balance: %s", err, err1)
 		} else {
 			err = err1
 		}
@@ -236,6 +253,7 @@ func getNodeInfo() error {
 	if err != nil {
 		return err
 	}
+	//fmt.Println(re)
 	blockHeightTop = re.BeginSyncNum
 	walletInfo.BlockHeight = blockHeightTop
 	walletInfo.Blocks = blockHeightTop

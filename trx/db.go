@@ -30,7 +30,7 @@ func (fh OtherParam) TableName() string {
 
 // Account 账户分配的地址
 type Account struct {
-	ID      int64  `xorm:"'id' pk"`
+	ID      int64  `xorm:"'id' pk autoincr"`
 	Address string `xorm:"'address' unique DEFAULT '' "` // 唯一索引
 	User    string `xorm:"'user'"`
 	Ctime   int64  `xorm:"'ctime'"`                          // 创建时间
@@ -39,7 +39,7 @@ type Account struct {
 
 // Balance  代币余额
 type Balance struct {
-	ID       int64  `xorm:"'id' pk"`
+	ID       int64  `xorm:"'id' pk autoincr"`
 	Address  string `xorm:"'address' DEFAULT '' "`
 	Contract string `xorm:"'contract' index"` // 哪种合约
 	Amount   int64  `xorm:"'amount' index INTEGER DEFAULT 0"`
@@ -121,9 +121,9 @@ func (db *DB) GetAccount(from int) ([]Account, error) {
 }
 
 // GetAccountWithBalance 获取大于minAmount的所有账户
-func (db *DB) GetAccountWithBalance(minAmount int64, count int) ([]Account, error) {
+func (db *DB) GetAccountWithBalance(startid, minAmount int64, count int) ([]Account, error) {
 	var tmp = make([]Account, 0)
-	err := db.Where("amount >= ?", minAmount).Limit(count).Find(&tmp)
+	err := db.Where("amount >= ? and id> ?", minAmount, startid).Limit(count).Find(&tmp)
 	return tmp, err
 }
 
@@ -144,15 +144,22 @@ func (db *DB) SearchBalance(contract, address string) (*Balance, error) {
 func (db *DB) InsertBalance(account *Balance) (int64, error) {
 	re, _ := db.SearchBalance(account.Contract, account.Address)
 	if re != nil {
-		return 0, nil
+		return db.ID(re.ID).Update(map[string]interface{}{"amount": account.Amount})
 	}
-	return db.Cols("address", "contract", "amount").Insert(account)
+	return db.Insert(account)
 }
 
 // GetAccountWithContractBalance 获取大于minAmount的所有账户合约余额
-func (db *DB) GetAccountWithContractBalance(contract string, minAmount int64, count int) ([]Balance, error) {
+func (db *DB) GetAccountWithContractBalance(contract string, minAmount, startid int64, count int) ([]Balance, error) {
 	var tmp = make([]Balance, 0)
-	err := db.Where("contract= ? and amount >= ?", contract, minAmount).Limit(count).Find(&tmp)
+	err := db.Where("contract= ? and amount >= ? and id > ?", contract, minAmount, startid).Asc("id").Limit(count).Find(&tmp)
+	return tmp, err
+}
+
+// GetSumContractBalance 获取合约总余额
+func (db *DB) GetSumContractBalance(contract string) (map[string]int64, error) {
+	var tmp = make(map[string]int64, 0)
+	_, err := db.Table("balance").Select("sum(amount) as sumall").Where("contract= ?", contract).Get(&tmp)
 	return tmp, err
 }
 

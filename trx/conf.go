@@ -14,16 +14,18 @@ type GlobalConf struct {
 
 // Client 钱包节点
 type Client struct {
-	NodeTrx  string   `toml:"nodeTrx"`   // 超级节点url 主节点
-	NodeUrl  []string `toml:"nodeUrl"`   // 其他节点url
-	Password string   `toml:"password"`  // 主钱包密码 加密后的
-	MainAddr string   `toml:"main_addr"` // 主钱包地址
-	DBAddr   string   `toml:"db_addr"`   // sqlite 地址
-	KeyStore string   `toml:"key_store"` // 用户钱包保存路径
-	Port     string   `toml:"port"`      // 监听端口 trx
-	LogLevel string   `toml:"logLevel"`  // 日志等级
-	Count    int64    `toml:"count"`     // 批量查询交易记录个数
-	Feelimit int64    `toml:"feelimit"`  // 转账合约消耗sun个数 建议设置500000
+	NodeTrx  string          `toml:"nodeTrx"`   // 超级节点url 主节点
+	NodeUrl  []string        `toml:"nodeUrl"`   // 其他节点url
+	Password string          `toml:"password"`  // 主钱包密码 加密后的
+	MainAddr string          `toml:"main_addr"` // 主钱包地址
+	DBAddr   string          `toml:"db_addr"`   // sqlite 地址
+	KeyStore string          `toml:"key_store"` // 用户钱包保存路径
+	Port     string          `toml:"port"`      // 监听端口 trx
+	LogLevel string          `toml:"logLevel"`  // 日志等级
+	Count    int64           `toml:"count"`     // 批量查询交易记录个数
+	Feelimit int64           `toml:"feelimit"`  // 转账合约消耗sun个数 建议设置5000000
+	PerFee   decimal.Decimal `toml:"perfee"`    // 每次归集每个合约需要手续费消耗
+	MinFee   decimal.Decimal `toml:"minfee"`    // 每个地址至少保留多少trx手续费
 }
 
 // Scantraderecord 扫描交易记录配置

@@ -236,7 +236,7 @@ func processTransaction(node *service.GrpcClient, contract, txid, from, to strin
 				types = CollectOwn // 站内转账 暂时不可能触发
 			} else {
 				types = Receive
-				go collect(contract, to) // 归集检测
+				go collectall(to) // 归集检测
 			}
 		} else {
 			if acf != nil {
@@ -273,7 +273,7 @@ func processTransaction(node *service.GrpcClient, contract, txid, from, to strin
 }
 
 // 转账合约燃烧 trx数量 单位 sun 默认0.5trx 转账一笔大概消耗能量 0.26trx
-var feelimit int64 = 500000
+var feelimit int64 = 5000000
 
 // 转币
 func send(key *ecdsa.PrivateKey, contract, to string, amount decimal.Decimal) (string, error) {

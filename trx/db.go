@@ -123,19 +123,16 @@ func (db *DB) GetAccount(from int) ([]Account, error) {
 // GetAccountWithBalance 获取大于minAmount的所有账户
 func (db *DB) GetAccountWithBalance(startid, minAmount int64, count int) ([]Account, error) {
 	var tmp = make([]Account, 0)
-	err := db.Where("amount >= ? and id> ?", minAmount, startid).Limit(count).Find(&tmp)
+	err := db.Where("id> ?", startid).Limit(count).Find(&tmp)
 	return tmp, err
 }
 
-// SearchBalance 搜索交易记录是否存在
+// SearchBalance 搜索余额记录是否存在
 func (db *DB) SearchBalance(contract, address string) (*Balance, error) {
 	var tmp Balance
-	ok, err := db.Where("contract = ? and address =?", contract, address).Limit(1).Get(&tmp)
-	if err != nil {
+	ok, err := db.Where("contract = ? and address =?", contract, address).Get(&tmp)
+	if !ok || err != nil {
 		return nil, err
-	}
-	if !ok {
-		return nil, nil
 	}
 	return &tmp, err
 }

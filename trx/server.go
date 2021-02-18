@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"tron/util"
 
-	"github.com/semrush/zenrpc"
+	"github.com/semrush/zenrpc/v2"
 	"github.com/shopspring/decimal"
 )
 

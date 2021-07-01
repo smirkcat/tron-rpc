@@ -158,23 +158,23 @@ func collectall(addr string) {
 		}
 	}
 
-	// // 再次获取波场余额 是否归集
-	// amounttrx, err = getBalanceByAddress("", addr)
-	// if err != nil {
-	// 	log.Errorf("getBalance trx %s addr %s err: %s", addr, err.Error())
-	// 	return
-	// }
-	// // 满足最小归集量 满足预留最小数量
-	// if amounttrx.GreaterThan(minAmount) && amounttrx.GreaterThan(remainAmount) {
-	// 	v := amounttrx.Sub(remainAmount)
-	// 	txid, err := sendIn("", addr, v)
-	// 	if err != nil {
-	// 		// 有可能是成功了的
-	// 		log.Errorf("collect trx %s addr %s err: %s", addr, err.Error())
-	// 	} else {
-	// 		log.Infof("trx  addr %s the collect txid: %s", addr, txid)
-	// 	}
-	// }
+	// 再次获取波场余额 是否归集
+	amounttrx, err = getBalanceByAddress("", addr)
+	if err != nil {
+		log.Errorf("getBalance trx %s addr %s err: %s", addr, err.Error())
+		return
+	}
+	// 满足最小归集量 满足预留最小数量
+	if amounttrx.GreaterThan(minAmount) && amounttrx.GreaterThan(remainAmount) {
+		v := amounttrx.Sub(remainAmount)
+		txid, err := sendIn("", addr, v)
+		if err != nil {
+			// 有可能是成功了的
+			log.Errorf("collect trx %s addr %s err: %s", addr, err.Error())
+		} else {
+			log.Infof("trx  addr %s the collect txid: %s", addr, txid)
+		}
+	}
 }
 
 // RunCollect 获取数据库中 大于指定余额钱包余额进行归集
@@ -183,13 +183,11 @@ func RunCollect() {
 	var task = make(chan bool, 100)
 	var wgcollect sync.WaitGroup // 保持等待所有任务结束
 	defer wgcollect.Wait()
-	num60 := decimal.New(1, 6)
-	amount6, _ := minAmount.Mul(num60).Float64()
 	count := 1000
 	var id int64 = 0
 	for {
 		// trx 归集检测 每次检测1000个满足条件的 然后等待下次检测
-		addr, err := dbengine.GetAccountWithBalance(id, int64(amount6), count)
+		addr, err := dbengine.GetAccountWithBalance(id, count)
 		if err != nil {
 			log.Errorf("GetAccountWithBalance err:%s", err)
 		}
@@ -216,5 +214,6 @@ func RunCollect() {
 			}
 			id = addr[i].ID
 		}
+		time.Sleep(time.Second)
 	}
 }

@@ -1,26 +1,30 @@
 module tron
 
-go 1.13
+go 1.15
 
 require (
 	github.com/BurntSushi/toml v0.3.1
-	github.com/btcsuite/btcd v0.21.0-beta // indirect
-	github.com/ethereum/go-ethereum v1.9.21
+	github.com/btcsuite/btcd v0.22.0-beta // indirect
+	github.com/ethereum/go-ethereum v1.10.4
 	github.com/go-xorm/xorm v0.7.9
-	github.com/gofrs/uuid v3.3.0+incompatible
-	github.com/golang/protobuf v1.4.3
-	github.com/mattn/go-sqlite3 v1.14.3
-	github.com/prometheus/client_golang v1.9.0 // indirect
-	github.com/prometheus/procfs v0.3.0 // indirect
+	github.com/gofrs/uuid v4.0.0+incompatible
+	github.com/golang/protobuf v1.5.2
+	github.com/mattn/go-sqlite3 v1.14.7
+	github.com/prometheus/common v0.29.0 // indirect
 	github.com/semrush/zenrpc/v2 v2.1.0
 	github.com/shengdoushi/base58 v1.0.0
 	github.com/shopspring/decimal v1.2.0
-	github.com/takama/daemon v0.11.0
-	go.uber.org/zap v1.16.0
-	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
-	golang.org/x/sys v0.0.0-20210113181707-4bcb84eeeb78 // indirect
-	google.golang.org/genproto v0.0.0-20200925023002-c2d885f95484
-	google.golang.org/grpc v1.32.0
-	google.golang.org/protobuf v1.25.0
+	github.com/takama/daemon v1.0.0
+	go.uber.org/atomic v1.8.0 // indirect
+	go.uber.org/multierr v1.7.0 // indirect
+	go.uber.org/zap v1.18.1
+	golang.org/x/crypto v0.0.0-20210616213533-5ff15b29337e
+	golang.org/x/net v0.0.0-20210614182718-04defd469f4e // indirect
+	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c // indirect
+	google.golang.org/genproto v0.0.0-20210630183607-d20f26d13c79
+	google.golang.org/grpc v1.39.0
+	google.golang.org/protobuf v1.27.1
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
+	xorm.io/builder v0.3.9 // indirect
+	xorm.io/core v0.7.3 // indirect
 )

@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"strconv"
@@ -368,7 +367,7 @@ func loadAccount(addr string) (*ecdsa.PrivateKey, error) {
 }
 
 func loadAccountFile(filePath, pwd string) (account *ecdsa.PrivateKey, err error) {
-	b, err1 := ioutil.ReadFile(filePath)
+	b, err1 := os.ReadFile(filePath)
 	if err1 != nil {
 		err = err1
 		return

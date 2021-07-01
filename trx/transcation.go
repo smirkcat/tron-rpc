@@ -272,7 +272,7 @@ func processTransaction(node *service.GrpcClient, contract, txid, from, to strin
 	log.Infof("InsertTransactions %v err %v ", trans, err)
 }
 
-// 转账合约燃烧 trx数量 单位 sun 默认0.5trx 转账一笔大概消耗能量 0.26trx
+// 转账合约燃烧 trx数量 单位 sun 默认5trx
 var feelimit int64 = 5000000
 
 // 转币

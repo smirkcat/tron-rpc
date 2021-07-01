@@ -26,7 +26,7 @@ var minScanBlock int64 = 23513066 // 最小 扫描高度
 var targetHeight int64
 var blockHeightTop int64
 var minAmount decimal.Decimal
-var remainAmount = decimal.New(100, 0)
+var remainAmount = decimal.New(10, 0) // 保留10个
 
 var goroutineNumScan int64 = 4 // 扫描交易记录的并发携程数
 
@@ -38,7 +38,7 @@ var mainAccout *ecdsa.PrivateKey // 主地址密钥
 var minFee = decimal.New(3, 0) // 每个地址至少保留多少trx手续费
 var perFee = decimal.New(3, 0) // 每次归集每个合约需要手续费消耗
 
-// 为了替换前一个
+// 为了替换前一个 TODO:
 var mainAddr1 = ""                // 主地址2
 var mainAccout1 *ecdsa.PrivateKey // 主地址密钥2
 var istwomain bool                // 是否两个主地址 第一个主地址还是负责提币和转手续费 第二个的地址负责收集归集币
@@ -84,11 +84,6 @@ func Init() {
 		os.Exit(1)
 	}
 
-	// // 如果配置了手续费
-	// if globalConf.Client.Fee.GreaterThan(decimal.Zero) {
-	// 	fee = globalConf.Client.Fee.Mul(microAE12)
-	// }
-
 	if globalConf.Client.Port != "" {
 		port = globalConf.Client.Port
 	}
@@ -123,6 +118,15 @@ func Init() {
 		log.Error(err)
 		os.Exit(1)
 	}
+	// mainAddr1 = globalConf.Client.MainAddr1
+	// if mainAddr1 != "" {
+	// 	mainAccout1, err = loadAccountWithUUID(mainAddr1, globalConf.Client.Password1)
+	// 	if err != nil {
+	// 		log.Error(err)
+	// 		os.Exit(1)
+	// 	}
+	// 	istwomain = true
+	// }
 
 	dbengine, err = InitDB(globalConf.Client.DBAddr)
 	if err != nil {

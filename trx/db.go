@@ -45,6 +45,10 @@ type Balance struct {
 	Amount   int64  `xorm:"'amount' index INTEGER DEFAULT 0"`
 }
 
+func (fh Balance) TableName() string {
+	return "balance"
+}
+
 // Transactions .
 type Transactions struct {
 	ID          int64  `xorm:"'id' pk" json:"-"`
@@ -121,7 +125,7 @@ func (db *DB) GetAccount(from int) ([]Account, error) {
 }
 
 // GetAccountWithBalance 获取大于minAmount的所有账户
-func (db *DB) GetAccountWithBalance(startid, minAmount int64, count int) ([]Account, error) {
+func (db *DB) GetAccountWithBalance(startid int64, count int) ([]Account, error) {
 	var tmp = make([]Account, 0)
 	err := db.Where("id> ?", startid).Limit(count).Find(&tmp)
 	return tmp, err
@@ -141,7 +145,7 @@ func (db *DB) SearchBalance(contract, address string) (*Balance, error) {
 func (db *DB) InsertBalance(account *Balance) (int64, error) {
 	re, _ := db.SearchBalance(account.Contract, account.Address)
 	if re != nil {
-		return db.ID(re.ID).Update(map[string]interface{}{"amount": account.Amount})
+		return db.Table(re).ID(re.ID).Update(map[string]interface{}{"amount": account.Amount})
 	}
 	return db.Insert(account)
 }

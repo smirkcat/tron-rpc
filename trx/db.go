@@ -78,8 +78,8 @@ func (db *DB) Session() *xorm.Session {
 	return db.NewSession()
 }
 
-// InitDB 初始化数据库
-func InitDB(url string) (*DB, error) {
+// NewDB 初始化数据库
+func NewDB(url string) (*DB, error) {
 	engine, err := xorm.NewEngine("sqlite3", url)
 	return &DB{
 		Engine: engine,

@@ -38,7 +38,7 @@ var mainAccout *ecdsa.PrivateKey // 主地址密钥
 var minFee = decimal.New(3, 0) // 每个地址至少保留多少trx手续费
 var perFee = decimal.New(3, 0) // 每次归集每个合约需要手续费消耗
 
-// 为了替换前一个 TODO:
+// 为了替换前一个
 var mainAddr1 = ""                // 主地址2
 var mainAccout1 *ecdsa.PrivateKey // 主地址密钥2
 var istwomain bool                // 是否两个主地址 第一个主地址还是负责提币和转手续费 第二个的地址负责收集归集币
@@ -57,33 +57,14 @@ func getCurrentDirectory() string {
 	return strings.Replace(dir, "\\", "/", -1)
 }
 
-// Init 初始化
-func Init() {
-	if _, err := toml.DecodeFile(curr+"trx.toml", &globalConf); err != nil {
+func InitConfig() {
+	if _, err := toml.DecodeFile(curr+"tron.toml", &globalConf); err != nil {
 		fmt.Println(err)
 		_, err = toml.Decode(string(getConfig()), &globalConf)
 		if err != nil {
 			panic(err)
 		}
 	}
-	InitLog() // 首先初始化日志
-	keystore, _ = filepath.Abs(globalConf.Client.KeyStore)
-	var err error
-
-	err = InitMainNode(globalConf.Client.NodeTrx)
-	if err != nil {
-		log.Error(err)
-		os.Exit(1)
-	}
-
-	InitAllNode(globalConf.Client.NodeUrl)
-
-	err = InitContract(globalConf.Contracts)
-	if err != nil {
-		log.Error(err)
-		os.Exit(1)
-	}
-
 	if globalConf.Client.Port != "" {
 		port = globalConf.Client.Port
 	}
@@ -111,40 +92,60 @@ func Init() {
 	if globalConf.Client.PerFee.Cmp(decimal.Zero) > 0 {
 		perFee = globalConf.Client.PerFee
 	}
+	keystore, _ = filepath.Abs(globalConf.Client.KeyStore)
+}
 
-	mainAddr = globalConf.Client.MainAddr
-	mainAccout, err = loadAccountWithUUID(mainAddr, globalConf.Client.Password)
+func InitDB() {
+	var err error
+	dbengine, err = NewDB(globalConf.Client.DBAddr)
 	if err != nil {
-		log.Error(err)
-		os.Exit(1)
+		panic(err)
+	}
+	err = dbengine.Sync()
+	if err != nil {
+		panic(err)
+	}
+}
+
+// InitMainAndFee 初始化主账户和手续费账户
+func InitMainAndFee() {
+	var err error
+	mainAddr = globalConf.Client.MainAddr
+	mainAccout, err = loadAccountWithUUID(globalConf.Client.MainAddr, globalConf.Client.Password)
+	if err != nil {
+		panic(err)
 	}
 	// mainAddr1 = globalConf.Client.MainAddr1
 	// if mainAddr1 != "" {
 	// 	mainAccout1, err = loadAccountWithUUID(mainAddr1, globalConf.Client.Password1)
 	// 	if err != nil {
 	// 		log.Error(err)
-	// 		os.Exit(1)
 	// 	}
 	// 	istwomain = true
 	// }
+}
 
-	dbengine, err = InitDB(globalConf.Client.DBAddr)
-	if err != nil {
-		log.Error(err)
-		os.Exit(1)
-	}
+// InitWalletInfo 初始化钱包信息
+func InitWalletInfo() {
 	targetHeight = getlastBlock()
-
 	log.Info("lastblock:", targetHeight)
-
-	err = getWalletInfo()
+	err := getWalletInfo()
 	if err != nil {
-		log.Error(err)
-		os.Exit(1)
+		panic(err)
 	}
-
 	log.Info("walletInfo:", walletInfo)
+}
 
+// Init 初始化
+func Init() {
+	InitConfig()
+	InitLog() // 首先初始化日志
+	InitDB()
+	InitMainNode(globalConf.Client.NodeTrx)
+	InitAllNode(globalConf.Client.NodeUrl)
+	InitContract(globalConf.Contracts)
+	InitMainAndFee()
+	InitWalletInfo()
 	task()
 }
 
@@ -223,8 +224,8 @@ main_addr="TQCknYutmcMxGoq32JqQWvn1MzyRfuQirC" #主钱包地址
 password="eb1804aa-fa7d-4782-8145-afe4da83c56d" #主钱包秘钥加密前的密码 uuid
 #THqoopDxSfDSUu4G7EqAYX1CdmjXDZMWNG
 #bf8926a4-767e-4734-a74c-0511cf997b17
-key_store="D:/go/src/tron/trx/key_store" #用户秘钥保存路径 从运行文件路径开始算 默认 key_store
-db_addr="D:/go/src/tron/trx/trx.db"
+key_store="D:/go/tron/trx/key_store" #用户秘钥保存路径 从运行文件路径开始算 默认 key_store
+db_addr="D:/go/tron/trx/tron.db"
 port="9291"
 logLevel="info" # 日志等级默认
 feelimit=2000000

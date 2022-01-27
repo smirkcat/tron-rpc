@@ -46,22 +46,20 @@ const (
 )
 
 // InitContract 初始化所有合约
-func InitContract(contracts []Contract) error {
+func InitContract(contracts []Contract) {
 	for i, v := range contracts {
-		if ok, _ := mapContractType[v.Type]; ok {
+		if ok := mapContractType[v.Type]; ok {
 			mapContract[v.Contract] = &contracts[i]
 		} else {
-			return fmt.Errorf("the contract type %s is not exist pleasecheck", v.Type)
+			panic(fmt.Errorf("the contract type %s is not exist pleasecheck", v.Type))
 		}
 	}
-	return nil
 }
 
-func InitMainNode(url string) error {
+func InitMainNode(url string) {
 	nodemain = url
 	nodeall = make([]string, 1)
 	nodeall[0] = url
-	return nil
 }
 
 func InitAllNode(url []string) {
@@ -419,6 +417,7 @@ func creataddress() (string, error) {
 	if err != nil {
 		return "", err
 	}
+	// fmt.Println(uuidv4)
 	accountT := &Account{
 		Address: addr,
 		User:    uuidv4,

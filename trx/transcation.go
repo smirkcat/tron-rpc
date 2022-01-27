@@ -21,9 +21,9 @@ import (
 )
 
 // 每次最多100 个
-func getBlockWithHeights(start, end int64) error {
+func getBlockWithHeights(start, end int64) {
 	if end-start < 1 {
-		return nil
+		return
 	}
 	var node *service.GrpcClient
 againblock:
@@ -32,7 +32,7 @@ againblock:
 	}
 	select {
 	case <-ctx.Done():
-		return nil
+		return
 	default:
 	}
 	node = getRandOneNode()
@@ -51,7 +51,6 @@ againblock:
 	}
 	processBlocks(block)
 	node.Conn.Close()
-	return nil
 }
 
 func getBlockWithHeight(num int64) error {
@@ -71,6 +70,26 @@ func processBlocks(blocks *api.BlockListExtention) {
 	}
 }
 
+func getTransactionInfo(node *service.GrpcClient, txid string) *core.TransactionInfo {
+againtransinfo:
+	select {
+	case <-ctx.Done():
+		return nil
+	default:
+	}
+	transinfo, err := node.GetTransactionInfoById(txid)
+	if err != nil {
+		// rpc error: code = DeadlineExceeded desc = context deadline exceeded will get again
+		log.Warnf("node get txid %s GetTransactionInfoById  err: %v will get again", txid, err)
+		time.Sleep(time.Second * 5)
+		goto againtransinfo
+	}
+	return transinfo
+}
+
+// 通过translog判断合约转账 如果有转账有扣除，则需调用此方法更精确
+var transferid = "ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
+
 func processBlock(block *api.BlockExtention) {
 	height := block.GetBlockHeader().GetRawData().GetNumber()
 	node := getRandOneNode()
@@ -87,8 +106,10 @@ func processBlock(block *api.BlockExtention) {
 			continue
 		}
 
-		//fmt.Println(txid)
 		log.Debugf("process block height %d txid %s", height, txid)
+		var transinfo *core.TransactionInfo
+		var fee int64
+		// 这里只能有一个
 		for _, v1 := range v.Transaction.RawData.Contract {
 			if v1.Type == core.Transaction_Contract_TransferContract { //转账合约
 				// trx 转账
@@ -100,7 +121,7 @@ func processBlock(block *api.BlockExtention) {
 				}
 				form := base58.EncodeCheck(unObj.GetOwnerAddress())
 				to := base58.EncodeCheck(unObj.GetToAddress())
-				processTransaction(node, Trx, txid, form, to, height, unObj.GetAmount())
+				processTransaction(node, Trx, txid, form, to, height, unObj.GetAmount(), fee)
 			} else if v1.Type == core.Transaction_Contract_TriggerSmartContract { //调用智能合约
 				// trc20 转账
 				unObj := &core.TriggerSmartContract{}
@@ -109,15 +130,36 @@ func processBlock(block *api.BlockExtention) {
 					log.Errorf("parse Contract %v err: %v", v1, err)
 					continue
 				}
-				// res, _ := json.Marshal(unObj)
-				// fmt.Println(string(res))
+
 				contract := base58.EncodeCheck(unObj.GetContractAddress())
-				form := base58.EncodeCheck(unObj.GetOwnerAddress())
+				if !IsContract(contract) {
+					continue
+				}
+				from := base58.EncodeCheck(unObj.GetOwnerAddress())
 				data := unObj.GetData()
 				// unObj.Data  https://goethereumbook.org/en/transfer-tokens/ 参考eth 操作
-				to, amount, flag := processTransferData(data)
-				if flag { // 只有调用了 transfer(address,uint256) 才是转账
-					processTransaction(node, contract, txid, form, to, height, amount)
+				// 只处理 transfer函数产生的交易
+				_, _, flag := processTransferData(data, from)
+				if flag { // 只有调用了 transfer(address,uint256) 才处理转账
+					// 手续费处理 eth 类似 recipt
+					if transinfo == nil {
+						transinfo = getTransactionInfo(node, txid)
+					}
+
+					if transinfo == nil {
+						continue
+					}
+
+					fee = transinfo.GetFee()
+					// 处理 evenlog 合约转账，如有些合约发起转账并不是全部到账
+					// https://tronscan.org/#/address/TWsZk6fs7UisoJAFXiMDXk9aF4PPRzVywZ/transfers
+					// https://tronscan.org/#/transaction/0384391ab3ecdf70ffa6e20244718a06b998b8af8a226cda46871dec60b5f14d
+					for _, evenlog := range transinfo.Log {
+						contract, from, to, amount, flag := processEvenlogData(evenlog)
+						if flag {
+							processTransaction(node, contract, txid, from, to, height, amount, fee)
+						}
+					}
 				}
 			} else if v1.Type == core.Transaction_Contract_TransferAssetContract { //通证转账合约
 				// trc10 转账
@@ -130,10 +172,38 @@ func processBlock(block *api.BlockExtention) {
 				contract := base58.EncodeCheck(unObj.GetAssetName())
 				form := base58.EncodeCheck(unObj.GetOwnerAddress())
 				to := base58.EncodeCheck(unObj.GetToAddress())
-				processTransaction(node, contract, txid, form, to, height, unObj.GetAmount())
+				processTransaction(node, contract, txid, form, to, height, unObj.GetAmount(), fee)
 			}
 		}
 	}
+}
+
+// 处理合约事件参数
+func processEvenlogData(evenlog *core.TransactionInfo_Log) (contract, from, to string, amount int64, flag bool) {
+	tmpaddr := evenlog.GetAddress()
+	tmpaddr = append([]byte{0x41}, tmpaddr...)
+	contract = base58.EncodeCheck(tmpaddr[:])
+	if !IsContract(contract) {
+		return
+	}
+
+	amount = new(big.Int).SetBytes(common.TrimLeftZeroes(evenlog.Data)).Int64()
+
+	if len(evenlog.Topics) != 3 {
+		return
+	}
+	if transferid != hexutil.Encode(evenlog.Topics[0]) {
+		return
+	}
+	if len(evenlog.Topics[1]) != 32 || len(evenlog.Topics[2]) != 32 {
+		return
+	}
+	evenlog.Topics[1][11] = 0x41
+	evenlog.Topics[2][11] = 0x41
+	from = base58.EncodeCheck(evenlog.Topics[1][11:])
+	to = base58.EncodeCheck(evenlog.Topics[2][11:])
+
+	return
 }
 
 // 这个结构目前没有用到 只是记录Trc20合约调用对应转换结果
@@ -147,17 +217,29 @@ var mapFunctionTcc20 = map[string]string{
 // 0000000000000000000000000000000000000000000000000000000000989680 32 64
 
 // 处理合约参数
-func processTransferData(trc20 []byte) (to string, amount int64, flag bool) {
+func processTransferData(trc20 []byte, from string) (to string, amount int64, flag bool) {
 	if len(trc20) >= 68 {
-		fmt.Println(hexutil.Encode(trc20))
 		if hexutil.Encode(trc20[:4]) != "a9059cbb" {
 			return
 		}
 		// 多1位41
-		trc20[15] = 65
+		trc20[15] = 65 // 0x41
 		to = base58.EncodeCheck(trc20[15:36])
 		amount = new(big.Int).SetBytes(common.TrimLeftZeroes(trc20[36:68])).Int64()
-		flag = true
+		// 不在地址范围内 不处理
+		if to == mainAddr || from == mainAddr {
+			flag = true
+			return
+		}
+		ac, _ := dbengine.SearchAccount(to)
+		if ac != nil {
+			flag = true
+		}
+		// 归集
+		ac, _ = dbengine.SearchAccount(from)
+		if ac != nil {
+			flag = true
+		}
 	}
 	return
 }
@@ -193,7 +275,7 @@ func processBalanceOfParameter(addr string) (data []byte) {
 	return
 }
 
-func processTransaction(node *service.GrpcClient, contract, txid, from, to string, blockheight, amount int64) {
+func processTransaction(node *service.GrpcClient, contract, txid, from, to string, blockheight, amount, fee int64) {
 
 	// 合约是否存在
 	if !IsContract(contract) {
@@ -247,14 +329,15 @@ func processTransaction(node *service.GrpcClient, contract, txid, from, to strin
 		}
 	}
 
-	// 手续费处理
-	transinfo, err := node.GetTransactionInfoById(txid)
-	var fee int64
-	if err != nil {
-		log.Error(err)
-	} else {
-		fee = transinfo.GetFee()
+	if fee == 0 {
+		transinfo, err := node.GetTransactionInfoById(txid)
+		if err != nil {
+			log.Error(err)
+		} else {
+			fee = transinfo.GetFee()
+		}
 	}
+
 	_, decimalnum := chargeContract(contract)
 	var trans = &Transactions{
 		TxID:        txid,
@@ -268,11 +351,13 @@ func processTransaction(node *service.GrpcClient, contract, txid, from, to strin
 		FromAddress: from,
 	}
 
-	_, err = dbengine.InsertTransactions(trans)
-	log.Infof("InsertTransactions %v err %v ", trans, err)
+	_, err := dbengine.InsertTransactions(trans)
+	if err != nil {
+		log.Infof("InsertTransactions %v err %v ", trans, err)
+	}
 }
 
-// 转账合约燃烧 trx数量 单位 sun 默认5trx
+// 转账合约燃烧 trx数量 单位 sun 默认5trx 转账一笔大概消耗能量 0.26trx
 var feelimit int64 = 5000000
 
 // 转币

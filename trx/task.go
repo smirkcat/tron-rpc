@@ -196,7 +196,9 @@ func RunCollect() {
 		if lens < 1 {
 			return
 		}
+
 		for i := 0; i < lens; i++ {
+			id = addr[i].ID
 			if addr[i].Address == mainAddr {
 				continue
 			}
@@ -212,7 +214,6 @@ func RunCollect() {
 				return
 			default:
 			}
-			id = addr[i].ID
 		}
 		time.Sleep(time.Second)
 	}

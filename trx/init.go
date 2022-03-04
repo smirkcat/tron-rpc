@@ -19,8 +19,10 @@ import (
 var ctx, canceltask = context.WithCancel(context.Background())
 var wg sync.WaitGroup
 
-var port = "9290"
+var port = "8245"
 var trxdecimal int32 = 6
+
+var IsMulti bool // 是否采用外部多链地址
 
 var minScanBlock int64 = 23513066 // 最小 扫描高度
 var targetHeight int64
@@ -30,7 +32,6 @@ var remainAmount = decimal.New(10, 0) // 保留10个
 
 var goroutineNumScan int64 = 4 // 扫描交易记录的并发携程数
 
-var keystore = "."               // 钱包文件
 var mainAddr = ""                // 主地址
 var mainAccout *ecdsa.PrivateKey // 主地址密钥
 
@@ -92,7 +93,6 @@ func InitConfig() {
 	if globalConf.Client.PerFee.Cmp(decimal.Zero) > 0 {
 		perFee = globalConf.Client.PerFee
 	}
-	keystore, _ = filepath.Abs(globalConf.Client.KeyStore)
 }
 
 func InitDB() {
@@ -105,13 +105,14 @@ func InitDB() {
 	if err != nil {
 		panic(err)
 	}
+	InitAddressDB(globalConf.Client.DBAddrMulti)
 }
 
 // InitMainAndFee 初始化主账户和手续费账户
 func InitMainAndFee() {
 	var err error
 	mainAddr = globalConf.Client.MainAddr
-	mainAccout, err = loadAccountWithUUID(globalConf.Client.MainAddr, globalConf.Client.Password)
+	mainAccout, err = loadAccountWithUUID(globalConf.Client.MainPri, globalConf.Client.Password)
 	if err != nil {
 		panic(err)
 	}
@@ -214,21 +215,20 @@ func task() {
 //获取默认的数据库配置
 func getConfig() []byte {
 	return []byte(`
-
-# grpc.trongrid.io:50051
-# 3.225.171.164:50051
-# grpc.shasta.trongrid.io:50051
+# grpc.trongrid.io:50051 正式
+# grpc.shasta.trongrid.io:50051 测试
 [client]
 nodeTrx="grpc.trongrid.io:50051"
 main_addr="TQCknYutmcMxGoq32JqQWvn1MzyRfuQirC" #主钱包地址
 password="eb1804aa-fa7d-4782-8145-afe4da83c56d" #主钱包秘钥加密前的密码 uuid
-#THqoopDxSfDSUu4G7EqAYX1CdmjXDZMWNG
-#bf8926a4-767e-4734-a74c-0511cf997b17
-key_store="D:/go/tron/trx/key_store" #用户秘钥保存路径 从运行文件路径开始算 默认 key_store
+main_pri="" #主钱包地址加密私钥
 db_addr="D:/go/tron/trx/tron.db"
-port="9291"
+port="8245"
 logLevel="info" # 日志等级默认
-feelimit=2000000
+count=3 #批量查询交易记录个数
+feelimit=5000000 # 每次转账trc20合约燃烧的能量 单位sun 默认5trx
+perfee=5 # 每次归集每个合约需要手续费消耗
+minfee=5 # 每个地址至少保留多少trx手续费
 
 # 合约配置 
 [[contract]]
@@ -236,7 +236,7 @@ name="USDT"  # 暂时没有用到
 type="trc20" # 合约类型
 contract="TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t" # trc20 合约地址
 issuer="THPvaUhoh2Qn2y9THCZML3H815hhFhn5YC" # 发行者地址 暂时没有用到
-port="9292" # 监听端口
+port="8246" # 监听端口
 min_amount=5 # 最小归集数量
 decimal=6 # 币种小数位
 
@@ -245,7 +245,7 @@ decimal=6 # 币种小数位
 # type="trc10" # 合约类型
 # contract="1002000" # 合约配置 trc10 合约ID assertname
 # issuer="TF5Bn4cJCT6GVeUgyCN4rBhDg42KBrpAjg" # 发行者地址 暂时没有用到
-# port="9293" # 监听端口
+# port="8247" # 监听端口
 # min_amount=0.1 # 最小归集数量
 
 [collection]

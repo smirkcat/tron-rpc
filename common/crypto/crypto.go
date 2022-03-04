@@ -44,6 +44,10 @@ func PrikeyToHexString(key *ecdsa.PrivateKey) string {
 	return hex.EncodeToString(crypto.FromECDSA(key))
 }
 
+func PubkeyToHexString(key *ecdsa.PublicKey) string {
+	return hex.EncodeToString(crypto.FromECDSAPub(key))
+}
+
 func PubkeyToAddress(p ecdsa.PublicKey) Address {
 	address := crypto.PubkeyToAddress(p)
 	addressTron := append([]byte{0x41}, address.Bytes()...)

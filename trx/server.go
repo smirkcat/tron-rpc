@@ -25,7 +25,11 @@ func (as Service) Getinfo() util.Info {
 
 // GetNewAddress  获取新地址
 func (as Service) GetNewAddress() (string, error) {
-	return creataddress()
+	ac, err := creataddress()
+	if err != nil {
+		return "", err
+	}
+	return ac.Address, nil
 }
 
 // ValidateAddress 校验地址

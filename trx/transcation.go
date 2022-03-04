@@ -145,7 +145,6 @@ func processBlock(block *api.BlockExtention) {
 					if transinfo == nil {
 						transinfo = getTransactionInfo(node, txid)
 					}
-
 					if transinfo == nil {
 						continue
 					}
@@ -231,12 +230,12 @@ func processTransferData(trc20 []byte, from string) (to string, amount int64, fl
 			flag = true
 			return
 		}
-		ac, _ := dbengine.SearchAccount(to)
+		ac, _ := SearchAccount(to)
 		if ac != nil {
 			flag = true
 		}
 		// 归集
-		ac, _ = dbengine.SearchAccount(from)
+		ac, _ = SearchAccount(from)
 		if ac != nil {
 			flag = true
 		}
@@ -284,18 +283,20 @@ func processTransaction(node *service.GrpcClient, contract, txid, from, to strin
 	// fmt.Printf("contract %s txid %s from %s to %s, blockheight %d amount %d \n",
 	// 	contract, txid, from, to, blockheight, amount)
 	var types string
+	var pub string
 	if from == mainAddr { // 提币 or 中转
-		ac, err := dbengine.SearchAccount(to)
+		ac, err := SearchAccount(to)
 		if err != nil {
 			log.Error(err)
 		}
 		if ac != nil {
+			pub = ac.PublicKey
 			types = Collect // 手续费划转
 		} else {
 			types = Send
 		}
 	} else if to == mainAddr { // 归集记录
-		ac, err := dbengine.SearchAccount(from)
+		ac, err := SearchAccount(from)
 		if err != nil {
 			log.Error(err)
 		}
@@ -305,15 +306,16 @@ func processTransaction(node *service.GrpcClient, contract, txid, from, to strin
 			types = ReceiveOther
 		}
 	} else {
-		acf, err := dbengine.SearchAccount(from)
+		acf, err := SearchAccount(from)
 		if err != nil {
 			log.Error(err)
 		}
-		act, err := dbengine.SearchAccount(to)
+		act, err := SearchAccount(to)
 		if err != nil {
 			log.Error(err)
 		}
 		if act != nil { // 收币地址
+			pub = act.PublicKey
 			if acf != nil {
 				types = CollectOwn // 站内转账 暂时不可能触发
 			} else {
@@ -347,6 +349,7 @@ func processTransaction(node *service.GrpcClient, contract, txid, from, to strin
 		Amount:      decimal.New(amount, -decimalnum).String(),
 		Fee:         decimal.New(fee, -trxdecimal).String(),
 		Timestamp:   time.Now().Unix(),
+		PublicKey:   pub,
 		Address:     to,
 		FromAddress: from,
 	}
@@ -411,6 +414,7 @@ func recentTransactions(contract, addr string, count, skip int) ([]wallet.Transa
 	for i := 0; i < lens; i++ {
 		ral[i].Address = re[i].Address
 		ral[i].FromAddress = re[i].FromAddress
+		ral[i].PublicKey = re[i].PublicKey
 		ral[i].Fee = json.Number(re[i].Fee)
 		ral[i].Amount = json.Number(re[i].Amount)
 		ral[i].Category = re[i].Type
@@ -435,6 +439,7 @@ func collectTransactions(contract string, sTime, eTime int64) ([]wallet.SummaryD
 	var account = "go-tron-" + contract + "-walletrpc"
 	for i := 0; i < lens; i++ {
 		ral[i].Address = re[i].Address
+		ral[i].PublicKey = re[i].PublicKey
 		ral[i].FromAddress = re[i].FromAddress
 		ral[i].Fee = re[i].Fee
 		ral[i].Amount = re[i].Amount

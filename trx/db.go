@@ -3,8 +3,8 @@ package trx
 import (
 	"strconv"
 
-	"github.com/go-xorm/xorm"
 	_ "github.com/mattn/go-sqlite3"
+	"xorm.io/xorm"
 )
 
 const (
@@ -14,7 +14,6 @@ const (
 	Collect      = "collect"       // 本平台地址归集到主地址
 	CollectOwn   = "collect_own"   // 站内转账
 	CollectSend  = "collect_send"  // 本平台地址提币到站外 异常的
-	//Contract    = ""
 )
 
 // OtherParam .
@@ -30,11 +29,13 @@ func (fh OtherParam) TableName() string {
 
 // Account 账户分配的地址
 type Account struct {
-	ID      int64  `xorm:"'id' pk autoincr"`
-	Address string `xorm:"'address' unique DEFAULT '' "` // 唯一索引
-	User    string `xorm:"'user'"`
-	Ctime   int64  `xorm:"'ctime'"`                          // 创建时间
-	Amount  int64  `xorm:"'amount' index INTEGER DEFAULT 0"` // 主链币种余额
+	ID         int64  `xorm:"'id' pk autoincr"`
+	Address    string `xorm:"'address' unique DEFAULT '' "`       // 唯一索引
+	PublicKey  string `xorm:"'public_key'"  json:"publickey"`     // 公钥新版字段 如果有就是新版
+	PrivateKey string `xorm:"'private_key'" sql:"comment:'地址私钥'"` // 地址私钥
+	User       string `xorm:"'user'"`
+	Ctime      int64  `xorm:"'ctime'"`                          // 创建时间
+	Amount     int64  `xorm:"'amount' index INTEGER DEFAULT 0"` // 主链币种余额
 }
 
 // Balance  代币余额
@@ -51,9 +52,10 @@ func (fh Balance) TableName() string {
 
 // Transactions .
 type Transactions struct {
-	ID          int64  `xorm:"'id' pk" json:"-"`
+	ID          int64  `xorm:"'id' pk autoincr" json:"-"`
 	TxID        string `xorm:"'tx_id'" json:"txid"`
 	BlockHeight int64  `xorm:"'block_height'" json:"blockheight"`
+	PublicKey   string `xorm:"'public_key'"  json:"publickey"` // 公钥新版字段 如果有就是新版
 	Address     string `xorm:"'address' index" json:""`
 	FromAddress string `xorm:"'from_address'" json:"fromaddress"`
 	Contract    string `xorm:"'contract' index"` // 哪种合约
@@ -70,7 +72,7 @@ type DB struct {
 
 // Close 关闭数据库引擎
 func (db *DB) Close() {
-	db.Close()
+	db.Engine.Close()
 }
 
 // Session 创建事务
@@ -93,7 +95,7 @@ func (db *DB) Sync() error {
 
 // InsertAccount 插入数据
 func (db *DB) InsertAccount(account *Account) (int64, error) {
-	return db.Cols("address", "user", "ctime", "amount").Insert(account)
+	return db.Cols("address", "private_key", "public_key", "user", "ctime", "amount").Insert(account)
 }
 
 // UpdateAccount 更新数据
@@ -101,8 +103,8 @@ func (db *DB) UpdateAccount(account *Account) (int64, error) {
 	return db.Where("address = ? ", account.Address).Cols("amount").Update(account)
 }
 
-// SearchAccount 搜索账户是否存在
-func (db *DB) SearchAccount(addr string) (*Account, error) {
+// GetAccountWithAddr 搜索地址是否存在
+func (db *DB) GetAccountWithAddr(addr string) (*Account, error) {
 	var tmp Account
 	ok, err := db.Where("address = ?", addr).Limit(1).Get(&tmp)
 	if err != nil {
@@ -215,7 +217,7 @@ func (db *DB) InsertTransactions(transactions *Transactions) (int64, error) {
 	if re != nil {
 		return 0, nil
 	}
-	return db.Cols("tx_id", "block_height", "address", "from_address", "contract",
+	return db.Cols("tx_id", "block_height", "address", "public_key", "from_address", "contract",
 		"amount", "fee", "timestamp", "type").Insert(transactions)
 }
 

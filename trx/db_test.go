@@ -5,14 +5,14 @@ import (
 	"testing"
 )
 
-var url = "./trx.db"
+var url = "tron.db"
 
 func TestRunDb(t *testing.T) {
 	InitDBTest()
 }
 
 func InitDBTest() {
-	re, err := InitDB(url)
+	re, err := NewDB(url)
 	if err != nil {
 		fmt.Println(err)
 		return

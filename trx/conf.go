@@ -14,20 +14,23 @@ type GlobalConf struct {
 
 // Client 钱包节点
 type Client struct {
-	NodeTrx   string          `toml:"nodeTrx"`    // 超级节点url 主节点
-	NodeUrl   []string        `toml:"nodeUrl"`    // 其他节点url
-	Password  string          `toml:"password"`   // 主钱包密码 加密后的
-	MainAddr  string          `toml:"main_addr"`  // 主钱包地址
-	Password1 string          `toml:"password1"`  // 主钱包密码 加密后的2
-	MainAddr1 string          `toml:"main_addr1"` // 主钱包地址2
-	DBAddr    string          `toml:"db_addr"`    // sqlite 地址
-	KeyStore  string          `toml:"key_store"`  // 用户钱包保存路径
-	Port      string          `toml:"port"`       // 监听端口 trx
-	LogLevel  string          `toml:"logLevel"`   // 日志等级
-	Count     int64           `toml:"count"`      // 批量查询交易记录个数
-	Feelimit  int64           `toml:"feelimit"`   // 转账合约消耗sun个数 建议设置5000000
-	PerFee    decimal.Decimal `toml:"perfee"`     // 每次归集每个合约需要手续费消耗
-	MinFee    decimal.Decimal `toml:"minfee"`     // 每个地址至少保留多少trx手续费
+	NodeTrx     string          `toml:"nodeTrx"`       // 超级节点url 主节点
+	NodeUrl     []string        `toml:"nodeUrl"`       // 其他节点url
+	Password    string          `toml:"password"`      // 主钱包密码 加密后的
+	MainAddr    string          `toml:"main_addr"`     // 主钱包地址
+	MainPri     string          `toml:"main_pri"`      // 主钱包私钥
+	Password1   string          `toml:"password1"`     // 主钱包密码 加密后的2
+	MainAddr1   string          `toml:"main_addr1"`    // 主钱包地址2
+	MainPri1    string          `toml:"main_pri1"`     // 主钱包私钥
+	DBAddr      string          `toml:"db_addr"`       // sqlite 地址
+	DBAddrMulti string          `toml:"db_addr_multi"` // 多链地址保存mysql数据库地址
+	KeyStore    string          `toml:"key_store"`     // 用户钱包保存路径
+	Port        string          `toml:"port"`          // 监听端口 trx
+	LogLevel    string          `toml:"logLevel"`      // 日志等级
+	Count       int64           `toml:"count"`         // 批量查询交易记录个数
+	Feelimit    int64           `toml:"feelimit"`      // 转账合约消耗sun个数 建议设置5000000
+	PerFee      decimal.Decimal `toml:"perfee"`        // 每次归集每个合约需要手续费消耗
+	MinFee      decimal.Decimal `toml:"minfee"`        // 每个地址至少保留多少trx手续费
 }
 
 // Scantraderecord 扫描交易记录配置

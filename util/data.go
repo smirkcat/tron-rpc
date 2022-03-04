@@ -24,6 +24,7 @@ type Transactions struct {
 	Account       string      `json:"account"`
 	TxID          string      `json:"txid"`
 	Address       string      `json:"address"`
+	PublicKey     string      `json:"publickey"` // 公钥新版字段 如果有就是新版
 	FromAddress   string      `json:"fromaddress"`
 	Category      string      `json:"category"`
 	Amount        json.Number `json:"amount"`
@@ -43,6 +44,7 @@ type SummaryData struct {
 	TxID         string `json:"txid"`
 	Account      string `json:"account"`
 	Address      string `json:"address"`
+	PublicKey    string `json:"publickey"` // 公钥新版字段 如果有就是新版
 	FromAddress  string `json:"fromaddress"`
 	Amount       string `json:"amount"`
 	BlockIndex   int64  `json:"blockindex"`

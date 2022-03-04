@@ -1,6 +1,7 @@
 *.db
 *.exe
 .vscode
+*.log
 program
 *.json
 *.txt

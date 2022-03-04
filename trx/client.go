@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -250,7 +249,6 @@ func getNodeInfo() error {
 	if err != nil {
 		return err
 	}
-	//fmt.Println(re)
 	blockHeightTop = re.BeginSyncNum
 	walletInfo.BlockHeight = blockHeightTop
 	walletInfo.Blocks = blockHeightTop
@@ -341,36 +339,35 @@ func validaddress(addr string) bool {
 		return false
 	}
 	_, err := base58.DecodeCheck(addr)
-	if err != nil {
-		return false
-	}
-	return true
+	return err == nil
 }
 
-func loadAccountWithUUID(addr, uuid string) (*ecdsa.PrivateKey, error) {
-	pwd := hashAndSalt([]byte(uuid + "trx"))
-	return loadAccountFile(keystore+"/"+addr, pwd)
+func loadAccountWithUUID(pri, uuid string) (*ecdsa.PrivateKey, error) {
+	pwd := hashAndSalt([]byte(uuid))
+	return loadAccountPri(pri, pwd)
 }
 
 func loadAccount(addr string) (*ecdsa.PrivateKey, error) {
-	re, err := dbengine.SearchAccount(addr)
+	re, err := SearchAccount(addr)
 	if err != nil {
 		return nil, err
 	}
 	if re == nil {
 		return nil, fmt.Errorf("adderss %s is not exist", addr)
 	}
-	pwd := hashAndSalt([]byte(re.User + "trx"))
-	return loadAccountFile(keystore+"/"+addr, pwd)
+	var pwd string
+	if re.User != "" {
+		pwd = hashAndSalt([]byte(re.User))
+	}
+	return loadAccountPri(re.PrivateKey, pwd)
 }
 
-func loadAccountFile(filePath, pwd string) (account *ecdsa.PrivateKey, err error) {
-	b, err1 := os.ReadFile(filePath)
-	if err1 != nil {
-		err = err1
+func loadAccountPri(pri, pwd string) (account *ecdsa.PrivateKey, err error) {
+	if pwd == "" {
+		account, err = crypto.GetPrivateKeyByHexString(pri)
 		return
 	}
-	re, err1 := base64.StdEncoding.DecodeString(string(b))
+	re, err1 := base64.StdEncoding.DecodeString(pri)
 	if err != nil {
 		err = err1
 		return
@@ -385,15 +382,7 @@ func loadAccountFile(filePath, pwd string) (account *ecdsa.PrivateKey, err error
 	return
 }
 
-// storeAccountToKeyStoreFile store an account to a json file
-func storeAccountToKeyStoreFile(account *ecdsa.PrivateKey, password, walletName string) (filePath string, err error) {
-	filePath = walletName
-	f, err1 := os.Create(filePath) //创建文件
-	if err1 != nil {
-		err = err1
-		return
-	}
-	defer f.Close()
+func accountEncrypt(account *ecdsa.PrivateKey, password string) (priEncrypt string, err error) {
 	prikey := crypto.PrikeyToHexString(account)
 	md5sum := md5.Sum([]byte(password))
 	result, err1 := AesEncrypt([]byte(prikey), md5sum[:])
@@ -401,31 +390,32 @@ func storeAccountToKeyStoreFile(account *ecdsa.PrivateKey, password, walletName 
 		err = err1
 		return
 	}
-	_, err = f.WriteString(base64.StdEncoding.EncodeToString(result))
+	priEncrypt = base64.StdEncoding.EncodeToString(result)
 	return
 }
 
-func creataddress() (string, error) {
+func creataddress() (*Account, error) {
 	var uuidv4 = uuid.Must(uuid.NewV4()).String()
-	p := hashAndSalt([]byte(uuidv4 + "trx"))
-	re, err := crypto.GenerateKey()
+	pwd := hashAndSalt([]byte(uuidv4))
+	privateKey, err := crypto.GenerateKey()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	addr := base58.EncodeCheck(crypto.PubkeyToAddress(re.PublicKey).Bytes())
-	_, err = storeAccountToKeyStoreFile(re, p, keystore+"/"+addr)
+	adderss := base58.EncodeCheck(crypto.PubkeyToAddress(privateKey.PublicKey).Bytes())
+	priEncrypt, err := accountEncrypt(privateKey, pwd)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	// fmt.Println(uuidv4)
 	accountT := &Account{
-		Address: addr,
-		User:    uuidv4,
-		Ctime:   time.Now().Unix(),
-		Amount:  0,
+		Address:    adderss,
+		PrivateKey: priEncrypt,
+		PublicKey:  crypto.PubkeyToHexString(privateKey.Public().(*ecdsa.PublicKey)),
+		User:       uuidv4,
+		Ctime:      time.Now().Unix(),
+		Amount:     0,
 	}
 	_, err = dbengine.InsertAccount(accountT)
-	return addr, err
+	return accountT, err
 }
 
 func hashAndSalt(pwd []byte) string {
@@ -445,7 +435,7 @@ func hashAndSalt(pwd []byte) string {
 		pass[i] = te4[k]
 		k += num
 	}
-	return hex.EncodeToString(pass) + "trx"
+	return hex.EncodeToString(pass)
 }
 
 // 来源 c++密码源代码

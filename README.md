@@ -12,6 +12,6 @@ git submodule update --init --recursive
 
 ### 合约发布网站
 
-https://cn.developers.tron.network/docs/%E5%8F%91%E8%A1%8Ctrc20%E4%BB%A3%E5%B8%81%E6%95%99%E7%A8%8B
+https://cn.developers.tron.network/docs/发行trc20代币教程
 
 [*change log*](CHANGELOG.md)

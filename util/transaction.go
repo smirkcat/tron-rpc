@@ -4,10 +4,11 @@ import (
 	"crypto/ecdsa"
 	"crypto/sha256"
 	"time"
-	"tron/common/crypto"
 	"tron/core"
 
-	"github.com/golang/protobuf/proto"
+	"github.com/ethereum/go-ethereum/crypto"
+
+	"google.golang.org/protobuf/proto"
 )
 
 // SignTransaction 签名交易

@@ -19,6 +19,8 @@ type Client struct {
 	Password    string          `toml:"password"`      // 主钱包密码 加密后的
 	MainAddr    string          `toml:"main_addr"`     // 主钱包地址
 	MainPri     string          `toml:"main_pri"`      // 主钱包私钥
+	Seed        string          `toml:"seed"`          // 私钥种子base64
+	SeedPri     string          `toml:"seed_pri"`      // 私钥种子密码
 	Password1   string          `toml:"password1"`     // 主钱包密码 加密后的2
 	MainAddr1   string          `toml:"main_addr1"`    // 主钱包地址2
 	MainPri1    string          `toml:"main_pri1"`     // 主钱包私钥

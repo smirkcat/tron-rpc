@@ -2,9 +2,6 @@ package trx
 
 import (
 	"crypto/ecdsa"
-	"crypto/md5"
-	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/rand"
@@ -12,14 +9,13 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"tron/common/base58"
-	"tron/common/crypto"
 	"tron/log"
 	"tron/service"
 
+	"github.com/smirkcat/hdwallet"
+
 	wallet "tron/util"
 
-	"github.com/gofrs/uuid"
 	"github.com/shopspring/decimal"
 )
 
@@ -129,22 +125,13 @@ func getRandOneNode() *service.GrpcClient {
 	return getMaineNode()
 }
 
-// InitLog 初始化日志文件
-func InitLog() {
-	var logConfigInfoName, logConfigErrorName, logLevel string
-	logConfigInfoName = curr + "trx.log"
-	logConfigErrorName = curr + "trx-err.log"
-	logLevel = globalConf.LogLevel
-	log.Init(logConfigInfoName, logConfigErrorName, logLevel)
-}
-
 // 判断当前属于什么合约
 func chargeContract(contract string) (string, int32) {
 	if contract == "trx" || contract == "" {
 		return Trx, trxdecimal
 	}
 	if v := mapContract[contract]; v != nil {
-		if ok, _ := mapContractType[v.Type]; ok {
+		if ok := mapContractType[v.Type]; ok {
 			return v.Type, v.Decimal
 		}
 	}
@@ -157,7 +144,7 @@ func IsContract(contract string) bool {
 		return true
 	}
 	if v := mapContract[contract]; v != nil {
-		if ok, _ := mapContractType[v.Type]; ok {
+		if ok := mapContractType[v.Type]; ok {
 			return true
 		}
 	}
@@ -242,33 +229,6 @@ func getWalletInfo() (err error) {
 	return
 }
 
-func getNodeInfo() error {
-	node := getMaineNode()
-	defer node.Conn.Close()
-	re, err := node.GetNodeInfo()
-	if err != nil {
-		return err
-	}
-	blockHeightTop = re.BeginSyncNum
-	walletInfo.BlockHeight = blockHeightTop
-	walletInfo.Blocks = blockHeightTop
-	walletInfo.Connections = int64(re.CurrentConnectCount)
-	walletInfo.Difficulty = re.TotalFlow
-	return nil
-}
-
-// trx
-func getBalance() error {
-	node := getMaineNode()
-	defer node.Conn.Close()
-	ac, err := node.GetAccount(mainAddr)
-	if err != nil {
-		return err
-	}
-	walletInfo.Balance = json.Number(decimal.New(ac.Balance, -6).String())
-	return nil
-}
-
 // 获取余额
 func getBalanceByAddress(contract, addr string) (decimal.Decimal, error) {
 	typs, decimalnum := chargeContract(contract)
@@ -305,20 +265,6 @@ func getTrc20BalanceByAddress(contract, addr string, ac *ecdsa.PrivateKey) (int6
 	return processBalanceOfData(re[0]), nil
 }
 
-func getBlockHeight() error {
-	node := getMaineNode()
-	defer node.Conn.Close()
-	block, err := node.GetNowBlock()
-	if err != nil {
-		return err
-	}
-	processBlock(block)
-	blockHeightTop = block.BlockHeader.RawData.Number
-	walletInfo.BlockHeight = blockHeightTop
-	walletInfo.Blocks = blockHeightTop
-	return nil
-}
-
 func getlastBlock() int64 {
 	if minScanBlock < 0 {
 		return -minScanBlock
@@ -338,13 +284,13 @@ func validaddress(addr string) bool {
 	if string(addr[0:1]) != "T" {
 		return false
 	}
-	_, err := base58.DecodeCheck(addr)
+	_, err := hdwallet.DecodeCheck(addr)
 	return err == nil
 }
 
 func loadAccountWithUUID(pri, uuid string) (*ecdsa.PrivateKey, error) {
-	pwd := hashAndSalt([]byte(uuid))
-	return loadAccountPri(pri, pwd)
+	pwd := hdwallet.HashAndSalt([]byte(uuid))
+	return hdwallet.LoadPrivateKeyFromDecrypt(pri, pwd)
 }
 
 func loadAccount(addr string) (*ecdsa.PrivateKey, error) {
@@ -357,59 +303,29 @@ func loadAccount(addr string) (*ecdsa.PrivateKey, error) {
 	}
 	var pwd string
 	if re.User != "" {
-		pwd = hashAndSalt([]byte(re.User))
+		pwd = hdwallet.HashAndSalt([]byte(re.User))
+		return hdwallet.LoadPrivateKeyFromDecrypt(re.PrivateKey, pwd)
 	}
-	return loadAccountPri(re.PrivateKey, pwd)
-}
-
-func loadAccountPri(pri, pwd string) (account *ecdsa.PrivateKey, err error) {
-	if pwd == "" {
-		account, err = crypto.GetPrivateKeyByHexString(pri)
-		return
-	}
-	re, err1 := base64.StdEncoding.DecodeString(pri)
-	if err != nil {
-		err = err1
-		return
-	}
-	md5sum := md5.Sum([]byte(pwd))
-	result, err1 := AesDecrypt(re, md5sum[:])
-	if err != nil {
-		err = err1
-		return
-	}
-	account, err = crypto.GetPrivateKeyByHexString(string(result))
-	return
-}
-
-func accountEncrypt(account *ecdsa.PrivateKey, password string) (priEncrypt string, err error) {
-	prikey := crypto.PrikeyToHexString(account)
-	md5sum := md5.Sum([]byte(password))
-	result, err1 := AesEncrypt([]byte(prikey), md5sum[:])
-	if err1 != nil {
-		err = err1
-		return
-	}
-	priEncrypt = base64.StdEncoding.EncodeToString(result)
-	return
+	return hdwallet.GetPrivateKeyByHexString(re.PrivateKey)
 }
 
 func creataddress() (*Account, error) {
-	var uuidv4 = uuid.Must(uuid.NewV4()).String()
-	pwd := hashAndSalt([]byte(uuidv4))
-	privateKey, err := crypto.GenerateKey()
+	var uuidv4 = hdwallet.GenPwd()
+	pwd := hdwallet.HashAndSalt([]byte(uuidv4))
+	index, privateKey, err := NewPrivateKey()
 	if err != nil {
 		return nil, err
 	}
-	adderss := base58.EncodeCheck(crypto.PubkeyToAddress(privateKey.PublicKey).Bytes())
-	priEncrypt, err := accountEncrypt(privateKey, pwd)
+	adderss := hdwallet.PrikeyToAddressTron(privateKey)
+	priEncrypt, err := hdwallet.StorePrivateKeyToDecrypt(privateKey, pwd)
 	if err != nil {
 		return nil, err
 	}
 	accountT := &Account{
 		Address:    adderss,
+		Index:      index,
 		PrivateKey: priEncrypt,
-		PublicKey:  crypto.PubkeyToHexString(privateKey.Public().(*ecdsa.PublicKey)),
+		PublicKey:  hdwallet.PubkeyToHexString(privateKey.Public().(*ecdsa.PublicKey)),
 		User:       uuidv4,
 		Ctime:      time.Now().Unix(),
 		Amount:     0,
@@ -417,42 +333,3 @@ func creataddress() (*Account, error) {
 	_, err = dbengine.InsertAccount(accountT)
 	return accountT, err
 }
-
-func hashAndSalt(pwd []byte) string {
-	lens := len(pwd)
-	var num int
-	for i := 0; i < lens; i++ {
-		tmp := int(pwd[i])
-		if tmp != 45 {
-			num += tmp
-		}
-	}
-	num = num%15 + 1
-	var k = num
-	var pass = make([]byte, 16)
-
-	for i := 0; i < 16; i++ {
-		pass[i] = te4[k]
-		k += num
-	}
-	return hex.EncodeToString(pass)
-}
-
-// 来源 c++密码源代码
-var te4 = [256]byte{
-	0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
-	0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0, 0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0,
-	0xb7, 0xfd, 0x93, 0x26, 0x36, 0x3f, 0xf7, 0xcc, 0x34, 0xa5, 0xe5, 0xf1, 0x71, 0xd8, 0x31, 0x15,
-	0x04, 0xc7, 0x23, 0xc3, 0x18, 0x96, 0x05, 0x9a, 0x07, 0x12, 0x80, 0xe2, 0xeb, 0x27, 0xb2, 0x75,
-	0x09, 0x83, 0x2c, 0x1a, 0x1b, 0x6e, 0x5a, 0xa0, 0x52, 0x3b, 0xd6, 0xb3, 0x29, 0xe3, 0x2f, 0x84,
-	0x53, 0xd1, 0x00, 0xed, 0x20, 0xfc, 0xb1, 0x5b, 0x6a, 0xcb, 0xbe, 0x39, 0x4a, 0x4c, 0x58, 0xcf,
-	0xd0, 0xef, 0xaa, 0xfb, 0x43, 0x4d, 0x33, 0x85, 0x45, 0xf9, 0x02, 0x7f, 0x50, 0x3c, 0x9f, 0xa8,
-	0x51, 0xa3, 0x40, 0x8f, 0x92, 0x9d, 0x38, 0xf5, 0xbc, 0xb6, 0xda, 0x21, 0x10, 0xff, 0xf3, 0xd2,
-	0xcd, 0x0c, 0x13, 0xec, 0x5f, 0x97, 0x44, 0x17, 0xc4, 0xa7, 0x7e, 0x3d, 0x64, 0x5d, 0x19, 0x73,
-	0x60, 0x81, 0x4f, 0xdc, 0x22, 0x2a, 0x90, 0x88, 0x46, 0xee, 0xb8, 0x14, 0xde, 0x5e, 0x0b, 0xdb,
-	0xe0, 0x32, 0x3a, 0x0a, 0x49, 0x06, 0x24, 0x5c, 0xc2, 0xd3, 0xac, 0x62, 0x91, 0x95, 0xe4, 0x79,
-	0xe7, 0xc8, 0x37, 0x6d, 0x8d, 0xd5, 0x4e, 0xa9, 0x6c, 0x56, 0xf4, 0xea, 0x65, 0x7a, 0xae, 0x08,
-	0xba, 0x78, 0x25, 0x2e, 0x1c, 0xa6, 0xb4, 0xc6, 0xe8, 0xdd, 0x74, 0x1f, 0x4b, 0xbd, 0x8b, 0x8a,
-	0x70, 0x3e, 0xb5, 0x66, 0x48, 0x03, 0xf6, 0x0e, 0x61, 0x35, 0x57, 0xb9, 0x86, 0xc1, 0x1d, 0x9e,
-	0xe1, 0xf8, 0x98, 0x11, 0x69, 0xd9, 0x8e, 0x94, 0x9b, 0x1e, 0x87, 0xe9, 0xce, 0x55, 0x28, 0xdf,
-	0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16}

@@ -4,17 +4,17 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
-	"log"
 	"strconv"
 	"time"
 	"tron/api"
-	"tron/common/base58"
-	"tron/common/crypto"
-	"tron/common/hexutil"
 	"tron/core"
+	"tron/hexutil"
 	"tron/util"
 
+	"github.com/smirkcat/hdwallet"
+
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type GrpcClient struct {
@@ -31,7 +31,7 @@ func NewGrpcClient(address string) *GrpcClient {
 
 func (g *GrpcClient) Start() error {
 	var err error
-	g.Conn, err = grpc.Dial(g.Address, grpc.WithInsecure())
+	g.Conn, err = grpc.Dial(g.Address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return err
 	}
@@ -39,169 +39,152 @@ func (g *GrpcClient) Start() error {
 	return nil
 }
 
-func timeoutContext() context.Context {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
-	go func() {
-		time.Sleep(time.Second * 60)
-		cancel()
-	}()
-	return ctx
+// 新版
+func ContextTimeout(sec int) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), time.Second*time.Duration(sec))
 }
 
-func (g *GrpcClient) ListWitnesses() *api.WitnessList {
-	witnessList, err := g.Client.ListWitnesses(timeoutContext(),
+func (g *GrpcClient) ListWitnesses() (*api.WitnessList, error) {
+	ctx, cancel := ContextTimeout(20)
+	defer cancel()
+	witnessList, err := g.Client.ListWitnesses(ctx,
 		new(api.EmptyMessage))
 
 	if err != nil {
-		log.Fatalf("get witnesses error: %v\n", err)
+		return nil, fmt.Errorf("get witnesses error: %v", err)
 	}
 
-	return witnessList
+	return witnessList, nil
 }
 
-func (g *GrpcClient) ListNodes() *api.NodeList {
-	nodeList, err := g.Client.ListNodes(timeoutContext(),
+func (g *GrpcClient) ListNodes() (*api.NodeList, error) {
+	ctx, cancel := ContextTimeout(20)
+	defer cancel()
+	nodeList, err := g.Client.ListNodes(ctx,
 		new(api.EmptyMessage))
 	if err != nil {
-		log.Fatalf("get nodes error: %v\n", err)
+		return nil, fmt.Errorf("get nodes error: %v", err)
 	}
-	return nodeList
+	return nodeList, nil
 }
 
 func (g *GrpcClient) GetNodeInfo() (*core.NodeInfo, error) {
-	node, err := g.Client.GetNodeInfo(timeoutContext(), new(api.EmptyMessage))
+	ctx, cancel := ContextTimeout(20)
+	defer cancel()
+	node, err := g.Client.GetNodeInfo(ctx, new(api.EmptyMessage))
 	if err != nil {
 		return nil, err
 	}
-	return node, err
+	return node, nil
 }
 
 func (g *GrpcClient) GetAccount(address string) (*core.Account, error) {
 	account := new(core.Account)
 	var err error
-	account.Address, err = base58.DecodeCheck(address)
+	account.Address, err = hdwallet.DecodeCheck(address)
 	if err != nil {
 		return nil, err
 	}
-	result, err := g.Client.GetAccount(timeoutContext(), account)
+	ctx, cancel := ContextTimeout(20)
+	defer cancel()
+	result, err := g.Client.GetAccount(ctx, account)
 	return result, err
 }
 
 func (g *GrpcClient) GetNowBlock() (*api.BlockExtention, error) {
-	result, err := g.Client.GetNowBlock2(timeoutContext(), new(api.EmptyMessage))
+	ctx, cancel := ContextTimeout(20)
+	defer cancel()
+	result, err := g.Client.GetNowBlock2(ctx, new(api.EmptyMessage))
 	return result, err
 }
 
-func (g *GrpcClient) GetAssetIssueByAccount(address string) *api.AssetIssueList {
+func (g *GrpcClient) GetAssetIssueByAccount(address string) (*api.AssetIssueList, error) {
+	account := new(core.Account)
+	account.Address, _ = hdwallet.DecodeCheck(address)
+	ctx, cancel := ContextTimeout(30)
+	defer cancel()
+	result, err := g.Client.GetAssetIssueByAccount(ctx, account)
+	if err != nil {
+		return nil, fmt.Errorf("get asset issue by account error: %v", err)
+	}
+	return result, nil
+}
+
+func (g *GrpcClient) GetNextMaintenanceTime() (*api.NumberMessage, error) {
+	ctx, cancel := ContextTimeout(20)
+	defer cancel()
+	result, err := g.Client.GetNextMaintenanceTime(ctx, new(api.EmptyMessage))
+	if err != nil {
+		return nil, fmt.Errorf("get next maintenance time error: %v", err)
+	}
+	return result, nil
+}
+
+func (g *GrpcClient) TotalTransaction() (*api.NumberMessage, error) {
+	ctx, cancel := ContextTimeout(20)
+	defer cancel()
+	return g.Client.TotalTransaction(ctx, new(api.EmptyMessage))
+}
+
+func (g *GrpcClient) GetAccountNet(address string) (*api.AccountNetMessage, error) {
 	account := new(core.Account)
 
-	account.Address, _ = base58.DecodeCheck(address)
-
-	result, err := g.Client.GetAssetIssueByAccount(timeoutContext(),
-		account)
-
-	if err != nil {
-		log.Fatalf("get asset issue by account error: %v", err)
-	}
-
-	return result
+	account.Address, _ = hdwallet.DecodeCheck(address)
+	ctx, cancel := ContextTimeout(20)
+	defer cancel()
+	return g.Client.GetAccountNet(ctx, account)
 }
 
-func (g *GrpcClient) GetNextMaintenanceTime() *api.NumberMessage {
-
-	result, err := g.Client.GetNextMaintenanceTime(timeoutContext(),
-		new(api.EmptyMessage))
-
-	if err != nil {
-		log.Fatalf("get next maintenance time error: %v", err)
-	}
-
-	return result
-}
-
-func (g *GrpcClient) TotalTransaction() *api.NumberMessage {
-
-	result, err := g.Client.TotalTransaction(timeoutContext(),
-		new(api.EmptyMessage))
-
-	if err != nil {
-		log.Fatalf("total transaction error: %v", err)
-	}
-
-	return result
-}
-
-func (g *GrpcClient) GetAccountNet(address string) *api.AccountNetMessage {
-	account := new(core.Account)
-
-	account.Address, _ = base58.DecodeCheck(address)
-
-	result, err := g.Client.GetAccountNet(timeoutContext(), account)
-
-	if err != nil {
-		log.Fatalf("get account net error: %v", err)
-	}
-
-	return result
-}
-
-func (g *GrpcClient) GetAssetIssueByName(name string) *core.AssetIssueContract {
+func (g *GrpcClient) GetAssetIssueByName(name string) (*core.AssetIssueContract, error) {
 
 	assetName := new(api.BytesMessage)
 	assetName.Value = []byte(name)
-
-	result, err := g.Client.GetAssetIssueByName(timeoutContext(), assetName)
-
-	if err != nil {
-		log.Fatalf("get asset issue by name error: %v", err)
-	}
-
-	return result
+	ctx, cancel := ContextTimeout(20)
+	defer cancel()
+	return g.Client.GetAssetIssueByName(ctx, assetName)
 }
 
 func (g *GrpcClient) GetBlockByNum(num int64) (*api.BlockExtention, error) {
 	numMessage := new(api.NumberMessage)
 	numMessage.Num = num
-	result, err := g.Client.GetBlockByNum2(timeoutContext(), numMessage)
+	ctx, cancel := ContextTimeout(30)
+	defer cancel()
+	result, err := g.Client.GetBlockByNum2(ctx, numMessage)
 	return result, err
 }
 
-func (g *GrpcClient) GetBlockById(id string) *core.Block {
+func (g *GrpcClient) GetBlockById(id string) (*core.Block, error) {
 	blockId := new(api.BytesMessage)
 	var err error
 
 	blockId.Value, err = hexutil.Decode(id)
 
 	if err != nil {
-		log.Fatalf("get block by id error: %v", err)
+		return nil, fmt.Errorf("get block by id error: %v", err)
 	}
-
-	result, err := g.Client.GetBlockById(timeoutContext(), blockId)
+	ctx, cancel := ContextTimeout(20)
+	defer cancel()
+	result, err := g.Client.GetBlockById(ctx, blockId)
 
 	if err != nil {
-		log.Fatalf("get block by id error: %v", err)
+		return nil, fmt.Errorf("get block by id error: %v", err)
 	}
-
-	return result
+	return result, nil
 }
 
-func (g *GrpcClient) GetAssetIssueList() *api.AssetIssueList {
-
-	result, err := g.Client.GetAssetIssueList(timeoutContext(), new(api.EmptyMessage))
-
-	if err != nil {
-		log.Fatalf("get asset issue list error: %v", err)
-	}
-
-	return result
+func (g *GrpcClient) GetAssetIssueList() (*api.AssetIssueList, error) {
+	ctx, cancel := ContextTimeout(20)
+	defer cancel()
+	return g.Client.GetAssetIssueList(ctx, new(api.EmptyMessage))
 }
 
 func (g *GrpcClient) GetBlockByLimitNext(start, end int64) (*api.BlockListExtention, error) {
 	blockLimit := new(api.BlockLimit)
 	blockLimit.StartNum = start
 	blockLimit.EndNum = end
-	result, err := g.Client.GetBlockByLimitNext2(timeoutContext(), blockLimit)
-	return result, err
+	ctx, cancel := ContextTimeout(30)
+	defer cancel()
+	return g.Client.GetBlockByLimitNext2(ctx, blockLimit)
 }
 
 func (g *GrpcClient) GetTransactionById(id string) (*core.Transaction, error) {
@@ -211,8 +194,9 @@ func (g *GrpcClient) GetTransactionById(id string) (*core.Transaction, error) {
 	if err != nil {
 		return nil, err
 	}
-	result, err := g.Client.GetTransactionById(timeoutContext(), transactionId)
-	return result, err
+	ctx, cancel := ContextTimeout(20)
+	defer cancel()
+	return g.Client.GetTransactionById(ctx, transactionId)
 }
 
 func (g *GrpcClient) GetTransactionInfoById(id string) (*core.TransactionInfo, error) {
@@ -222,94 +206,85 @@ func (g *GrpcClient) GetTransactionInfoById(id string) (*core.TransactionInfo, e
 	if err != nil {
 		return nil, err
 	}
-	result, err := g.Client.GetTransactionInfoById(timeoutContext(), transactionId)
+	ctx, cancel := ContextTimeout(20)
+	defer cancel()
+	result, err := g.Client.GetTransactionInfoById(ctx, transactionId)
 	return result, err
 }
 
 func (g *GrpcClient) GetBlockByLatestNum(num int64) (*api.BlockListExtention, error) {
 	numMessage := new(api.NumberMessage)
 	numMessage.Num = num
-	result, err := g.Client.GetBlockByLatestNum2(timeoutContext(), numMessage)
+	ctx, cancel := ContextTimeout(20)
+	defer cancel()
+	result, err := g.Client.GetBlockByLatestNum2(ctx, numMessage)
 	return result, err
 }
 
 func (g *GrpcClient) CreateAccount(ownerKey *ecdsa.PrivateKey,
-	accountAddress string) *api.Return {
+	accountAddress string) (*api.Return, error) {
 
 	accountCreateContract := new(core.AccountCreateContract)
-	accountCreateContract.OwnerAddress = crypto.PubkeyToAddress(ownerKey.PublicKey).Bytes()
-	accountCreateContract.AccountAddress, _ = base58.DecodeCheck(accountAddress)
+	accountCreateContract.OwnerAddress = hdwallet.PubkeyToTronAddress(ownerKey.PublicKey).Bytes()
+	accountCreateContract.AccountAddress, _ = hdwallet.DecodeCheck(accountAddress)
 
-	accountCreateTransaction, err := g.Client.CreateAccount(timeoutContext(), accountCreateContract)
+	ctx, cancel := ContextTimeout(30)
+	defer cancel()
+	accountCreateTransaction, err := g.Client.CreateAccount(ctx, accountCreateContract)
 
 	if err != nil {
-		log.Fatalf("create account error: %v", err)
+		return nil, fmt.Errorf("create account error: %v", err)
 	}
-
-	if accountCreateTransaction == nil || len(accountCreateTransaction.
-		GetRawData().GetContract()) == 0 {
-		log.Fatalf("create account error: invalid transaction")
+	if accountCreateTransaction == nil ||
+		len(accountCreateTransaction.GetRawData().GetContract()) == 0 {
+		return nil, fmt.Errorf("create account error: invalid transaction")
 	}
 
 	util.SignTransaction(accountCreateTransaction, ownerKey)
-
-	result, err := g.Client.BroadcastTransaction(timeoutContext(),
+	return g.Client.BroadcastTransaction(ctx,
 		accountCreateTransaction)
-
-	if err != nil {
-		log.Fatalf("create account error: %v", err)
-	}
-
-	return result
 }
 
 func (g *GrpcClient) UpdateAccount(ownerKey *ecdsa.PrivateKey,
-	accountName string) *api.Return {
+	accountName string) (*api.Return, error) {
 	var err error
 	accountUpdateContract := new(core.AccountUpdateContract)
 	accountUpdateContract.AccountName = []byte(accountName)
-	accountUpdateContract.OwnerAddress = crypto.PubkeyToAddress(ownerKey.
+	accountUpdateContract.OwnerAddress = hdwallet.PubkeyToTronAddress(ownerKey.
 		PublicKey).Bytes()
-
-	accountUpdateTransaction, err := g.Client.UpdateAccount(timeoutContext(), accountUpdateContract)
-
+	ctx, cancel := ContextTimeout(30)
+	defer cancel()
+	accountUpdateTransaction, err := g.Client.UpdateAccount(ctx, accountUpdateContract)
 	if err != nil {
-		log.Fatalf("update account error: %v", err)
+		return nil, fmt.Errorf("update account error: %v", err)
 	}
-
-	if accountUpdateTransaction == nil || len(accountUpdateTransaction.
-		GetRawData().GetContract()) == 0 {
-		log.Fatalf("update account error: invalid transaction")
+	if accountUpdateTransaction == nil ||
+		len(accountUpdateTransaction.GetRawData().GetContract()) == 0 {
+		return nil, fmt.Errorf("update account error: invalid transaction")
 	}
 
 	util.SignTransaction(accountUpdateTransaction, ownerKey)
 
-	result, err := g.Client.BroadcastTransaction(timeoutContext(),
-		accountUpdateTransaction)
-
-	if err != nil {
-		log.Fatalf("update account error: %v", err)
-	}
-
-	return result
+	return g.Client.BroadcastTransaction(ctx, accountUpdateTransaction)
 }
 
 func (g *GrpcClient) Transfer(ownerKey *ecdsa.PrivateKey, toAddress string, amount int64) (string, error) {
 	transferContract := new(core.TransferContract)
-	transferContract.OwnerAddress = crypto.PubkeyToAddress(ownerKey.
+	transferContract.OwnerAddress = hdwallet.PubkeyToTronAddress(ownerKey.
 		PublicKey).Bytes()
-	transferContract.ToAddress, _ = base58.DecodeCheck(toAddress)
+	transferContract.ToAddress, _ = hdwallet.DecodeCheck(toAddress)
 	transferContract.Amount = amount
-
-	transferTransactionEx, err := g.Client.CreateTransaction2(timeoutContext(), transferContract)
+	ctx, cancel := ContextTimeout(30)
+	defer cancel()
+	transferTransactionEx, err := g.Client.CreateTransaction2(ctx, transferContract)
 
 	var txid string
 	if err != nil {
 		return txid, err
 	}
 	transferTransaction := transferTransactionEx.Transaction
-	if transferTransaction == nil || len(transferTransaction.
-		GetRawData().GetContract()) == 0 {
+	if transferTransaction == nil ||
+		len(transferTransaction.GetRawData().GetContract()) == 0 {
 		return txid, fmt.Errorf("transfer error: invalid transaction")
 	}
 	hash, err := util.SignTransaction(transferTransaction, ownerKey)
@@ -318,34 +293,35 @@ func (g *GrpcClient) Transfer(ownerKey *ecdsa.PrivateKey, toAddress string, amou
 	}
 	txid = hexutil.Encode(hash)
 
-	result, err := g.Client.BroadcastTransaction(timeoutContext(),
+	result, err := g.Client.BroadcastTransaction(ctx,
 		transferTransaction)
 	if err != nil {
 		return "", err
 	}
 	if !result.Result {
-		return "", fmt.Errorf("api get false the msg: %v", result.String())
+		return "", fmt.Errorf("api get false the msg: %s", result.String())
 	}
 	return txid, err
 }
 
 func (g *GrpcClient) TransferAsset(ownerKey *ecdsa.PrivateKey, AssetName, toAddress string, amount int64) (string, error) {
 	transferContract := new(core.TransferAssetContract)
-	transferContract.OwnerAddress = crypto.PubkeyToAddress(ownerKey.
+	transferContract.OwnerAddress = hdwallet.PubkeyToTronAddress(ownerKey.
 		PublicKey).Bytes()
-	transferContract.ToAddress, _ = base58.DecodeCheck(toAddress)
-	transferContract.AssetName, _ = base58.DecodeCheck(AssetName)
+	transferContract.ToAddress, _ = hdwallet.DecodeCheck(toAddress)
+	transferContract.AssetName, _ = hdwallet.DecodeCheck(AssetName)
 	transferContract.Amount = amount
-
-	transferTransactionEx, err := g.Client.TransferAsset2(timeoutContext(), transferContract)
+	ctx, cancel := ContextTimeout(30)
+	defer cancel()
+	transferTransactionEx, err := g.Client.TransferAsset2(ctx, transferContract)
 
 	var txid string
 	if err != nil {
 		return txid, err
 	}
 	transferTransaction := transferTransactionEx.Transaction
-	if transferTransaction == nil || len(transferTransaction.
-		GetRawData().GetContract()) == 0 {
+	if transferTransaction == nil ||
+		len(transferTransaction.GetRawData().GetContract()) == 0 {
 		return txid, fmt.Errorf("transfer error: invalid transaction")
 	}
 	hash, err := util.SignTransaction(transferTransaction, ownerKey)
@@ -354,31 +330,32 @@ func (g *GrpcClient) TransferAsset(ownerKey *ecdsa.PrivateKey, AssetName, toAddr
 	}
 	txid = hexutil.Encode(hash)
 
-	result, err := g.Client.BroadcastTransaction(timeoutContext(),
-		transferTransaction)
+	result, err := g.Client.BroadcastTransaction(ctx, transferTransaction)
 	if err != nil {
 		return "", err
 	}
 	if !result.Result {
-		return "", fmt.Errorf("api get false the msg: %v", result.String())
+		return "", fmt.Errorf("api get false the msg: %s", result.String())
 	}
 	return txid, err
 }
 
 func (g *GrpcClient) TransferContract(ownerKey *ecdsa.PrivateKey, Contract string, data []byte, feeLimit int64) (string, error) {
 	transferContract := new(core.TriggerSmartContract)
-	transferContract.OwnerAddress = crypto.PubkeyToAddress(ownerKey.
+	transferContract.OwnerAddress = hdwallet.PubkeyToTronAddress(ownerKey.
 		PublicKey).Bytes()
-	transferContract.ContractAddress, _ = base58.DecodeCheck(Contract)
+	transferContract.ContractAddress, _ = hdwallet.DecodeCheck(Contract)
 	transferContract.Data = data
-	transferTransactionEx, err := g.Client.TriggerConstantContract(timeoutContext(), transferContract)
+	ctx, cancel := ContextTimeout(30)
+	defer cancel()
+	transferTransactionEx, err := g.Client.TriggerConstantContract(ctx, transferContract)
 	var txid string
 	if err != nil {
 		return txid, err
 	}
 	transferTransaction := transferTransactionEx.Transaction
-	if transferTransaction == nil || len(transferTransaction.
-		GetRawData().GetContract()) == 0 {
+	if transferTransaction == nil ||
+		len(transferTransaction.GetRawData().GetContract()) == 0 {
 		return txid, fmt.Errorf("transfer error: invalid transaction")
 	}
 	if feeLimit > 0 {
@@ -391,23 +368,25 @@ func (g *GrpcClient) TransferContract(ownerKey *ecdsa.PrivateKey, Contract strin
 	}
 	txid = hexutil.Encode(hash)
 
-	result, err := g.Client.BroadcastTransaction(timeoutContext(),
+	result, err := g.Client.BroadcastTransaction(ctx,
 		transferTransaction)
 	if err != nil {
 		return "", err
 	}
 	if !result.Result {
-		return "", fmt.Errorf("api get false the msg: %v", result.String())
+		return "", fmt.Errorf("api get false the msg: %s", result.String())
 	}
 	return txid, err
 }
 
 func (g *GrpcClient) GetConstantResultOfContract(ownerKey *ecdsa.PrivateKey, Contract string, data []byte) ([][]byte, error) {
 	transferContract := new(core.TriggerSmartContract)
-	transferContract.OwnerAddress = crypto.PubkeyToAddress(ownerKey.PublicKey).Bytes()
-	transferContract.ContractAddress, _ = base58.DecodeCheck(Contract)
+	transferContract.OwnerAddress = hdwallet.PubkeyToTronAddress(ownerKey.PublicKey).Bytes()
+	transferContract.ContractAddress, _ = hdwallet.DecodeCheck(Contract)
 	transferContract.Data = data
-	transferTransactionEx, err := g.Client.TriggerConstantContract(timeoutContext(), transferContract)
+	ctx, cancel := ContextTimeout(20)
+	defer cancel()
+	transferTransactionEx, err := g.Client.TriggerConstantContract(ctx, transferContract)
 	if err != nil {
 		return nil, err
 	}
@@ -418,108 +397,95 @@ func (g *GrpcClient) GetConstantResultOfContract(ownerKey *ecdsa.PrivateKey, Con
 }
 
 func (g *GrpcClient) FreezeBalance(ownerKey *ecdsa.PrivateKey,
-	frozenBalance, frozenDuration int64) *api.Return {
+	frozenBalance, frozenDuration int64) (*api.Return, error) {
 	freezeBalanceContract := new(core.FreezeBalanceContract)
-	freezeBalanceContract.OwnerAddress = crypto.PubkeyToAddress(ownerKey.
+	freezeBalanceContract.OwnerAddress = hdwallet.PubkeyToTronAddress(ownerKey.
 		PublicKey).Bytes()
 	freezeBalanceContract.FrozenBalance = frozenBalance
 	freezeBalanceContract.FrozenDuration = frozenDuration
-
-	freezeBalanceTransaction, err := g.Client.FreezeBalance(timeoutContext(), freezeBalanceContract)
+	ctx, cancel := ContextTimeout(30)
+	defer cancel()
+	freezeBalanceTransaction, err := g.Client.FreezeBalance(ctx, freezeBalanceContract)
 
 	if err != nil {
-		log.Fatalf("freeze balance error: %v", err)
+		return nil, fmt.Errorf("freeze balance error: %v", err)
 	}
 
 	if freezeBalanceTransaction == nil || len(freezeBalanceTransaction.
 		GetRawData().GetContract()) == 0 {
-		log.Fatalf("freeze balance error: invalid transaction")
+		return nil, fmt.Errorf("freeze balance error: invalid transaction")
 	}
 
 	util.SignTransaction(freezeBalanceTransaction, ownerKey)
 
-	result, err := g.Client.BroadcastTransaction(timeoutContext(),
-		freezeBalanceTransaction)
-
-	if err != nil {
-		log.Fatalf("freeze balance error: %v", err)
-	}
-
-	return result
+	return g.Client.BroadcastTransaction(ctx, freezeBalanceTransaction)
 }
 
-func (g *GrpcClient) UnfreezeBalance(ownerKey *ecdsa.PrivateKey) *api.Return {
+func (g *GrpcClient) UnfreezeBalance(ownerKey *ecdsa.PrivateKey) (*api.Return, error) {
 	unfreezeBalanceContract := new(core.UnfreezeBalanceContract)
-	unfreezeBalanceContract.OwnerAddress = crypto.PubkeyToAddress(ownerKey.PublicKey).Bytes()
-
-	unfreezeBalanceTransaction, err := g.Client.UnfreezeBalance(timeoutContext(), unfreezeBalanceContract)
+	unfreezeBalanceContract.OwnerAddress = hdwallet.PubkeyToTronAddress(ownerKey.PublicKey).Bytes()
+	ctx, cancel := ContextTimeout(30)
+	defer cancel()
+	unfreezeBalanceTransaction, err := g.Client.UnfreezeBalance(ctx, unfreezeBalanceContract)
 
 	if err != nil {
-		log.Fatalf("unfreeze balance error: %v", err)
+		return nil, fmt.Errorf("unfreeze balance error: %v", err)
 	}
 
-	if unfreezeBalanceTransaction == nil || len(unfreezeBalanceTransaction.
-		GetRawData().GetContract()) == 0 {
-		log.Fatalf("unfreeze balance error: invalid transaction")
+	if unfreezeBalanceTransaction == nil ||
+		len(unfreezeBalanceTransaction.GetRawData().GetContract()) == 0 {
+		return nil, fmt.Errorf("unfreeze balance error: invalid transaction")
 	}
 
 	util.SignTransaction(unfreezeBalanceTransaction, ownerKey)
-
-	result, err := g.Client.BroadcastTransaction(timeoutContext(),
-		unfreezeBalanceTransaction)
-
-	if err != nil {
-		log.Fatalf("unfreeze balance error: %v", err)
-	}
-
-	return result
+	return g.Client.BroadcastTransaction(ctx, unfreezeBalanceTransaction)
 }
 
 func (g *GrpcClient) CreateAssetIssue(ownerKey *ecdsa.PrivateKey,
 	name, description, urlStr string, totalSupply, startTime, endTime,
 	FreeAssetNetLimit,
 	PublicFreeAssetNetLimit int64, trxNum,
-	icoNum, voteScore int32, frozenSupply map[string]string) *api.Return {
+	icoNum, voteScore int32, frozenSupply map[string]string) (*api.Return, error) {
 	assetIssueContract := new(core.AssetIssueContract)
 
-	assetIssueContract.OwnerAddress = crypto.PubkeyToAddress(ownerKey.
+	assetIssueContract.OwnerAddress = hdwallet.PubkeyToTronAddress(ownerKey.
 		PublicKey).Bytes()
 
 	assetIssueContract.Name = []byte(name)
 
 	if totalSupply <= 0 {
-		log.Fatalf("create asset issue error: total supply <= 0")
+		return nil, fmt.Errorf("create asset issue error: total supply <= 0")
 	}
 	assetIssueContract.TotalSupply = totalSupply
 
 	if trxNum <= 0 {
-		log.Fatalf("create asset issue error: trxNum <= 0")
+		return nil, fmt.Errorf("create asset issue error: trxNum <= 0")
 	}
 	assetIssueContract.TrxNum = trxNum
 
 	if icoNum <= 0 {
-		log.Fatalf("create asset issue error: num <= 0")
+		return nil, fmt.Errorf("create asset issue error: num <= 0")
 	}
 	assetIssueContract.Num = icoNum
 
 	now := time.Now().UnixNano() / 1000000
 	if startTime <= now {
-		log.Fatalf("create asset issue error: start time <= current time")
+		return nil, fmt.Errorf("create asset issue error: start time <= current time")
 	}
 	assetIssueContract.StartTime = startTime
 
 	if endTime <= startTime {
-		log.Fatalf("create asset issue error: end time <= start time")
+		return nil, fmt.Errorf("create asset issue error: end time <= start time")
 	}
 	assetIssueContract.EndTime = endTime
 
 	if FreeAssetNetLimit < 0 {
-		log.Fatalf("create asset issue error: free asset net limit < 0")
+		return nil, fmt.Errorf("create asset issue error: free asset net limit < 0")
 	}
 	assetIssueContract.FreeAssetNetLimit = FreeAssetNetLimit
 
 	if PublicFreeAssetNetLimit < 0 {
-		log.Fatalf("create asset issue error: public free asset net limit < 0")
+		return nil, fmt.Errorf("create asset issue error: public free asset net limit < 0")
 	}
 	assetIssueContract.PublicFreeAssetNetLimit = PublicFreeAssetNetLimit
 
@@ -530,11 +496,11 @@ func (g *GrpcClient) CreateAssetIssue(ownerKey *ecdsa.PrivateKey,
 	for key, value := range frozenSupply {
 		amount, err := strconv.ParseInt(value, 10, 64)
 		if err != nil {
-			log.Fatalf("create asset issue error: convert error: %v", err)
+			return nil, fmt.Errorf("create asset issue error: convert error: %v", err)
 		}
 		days, err := strconv.ParseInt(key, 10, 64)
 		if err != nil {
-			log.Fatalf("create asset issue error: convert error: %v", err)
+			return nil, fmt.Errorf("create asset issue error: convert error: %v", err)
 		}
 		assetIssueContractFrozenSupply := new(core.
 			AssetIssueContract_FrozenSupply)
@@ -543,63 +509,52 @@ func (g *GrpcClient) CreateAssetIssue(ownerKey *ecdsa.PrivateKey,
 		assetIssueContract.FrozenSupply = append(assetIssueContract.
 			FrozenSupply, assetIssueContractFrozenSupply)
 	}
-
-	assetIssueTransaction, err := g.Client.CreateAssetIssue(timeoutContext(), assetIssueContract)
+	ctx, cancel := ContextTimeout(30)
+	defer cancel()
+	assetIssueTransaction, err := g.Client.CreateAssetIssue(ctx, assetIssueContract)
 
 	if err != nil {
-		log.Fatalf("create asset issue error: %v", err)
+		return nil, fmt.Errorf("create asset issue error: %v", err)
 	}
 
 	if assetIssueTransaction == nil || len(assetIssueTransaction.
 		GetRawData().GetContract()) == 0 {
-		log.Fatalf("create asset issue error: invalid transaction")
+		return nil, fmt.Errorf("create asset issue error: invalid transaction")
 	}
 
 	util.SignTransaction(assetIssueTransaction, ownerKey)
 
-	result, err := g.Client.BroadcastTransaction(timeoutContext(),
-		assetIssueTransaction)
-
-	if err != nil {
-		log.Fatalf("create asset issue error: %v", err)
-	}
-
-	return result
+	return g.Client.BroadcastTransaction(ctx, assetIssueTransaction)
 }
 
 func (g *GrpcClient) UpdateAssetIssue(ownerKey *ecdsa.PrivateKey,
 	description, urlStr string,
-	newLimit, newPublicLimit int64) *api.Return {
+	newLimit, newPublicLimit int64) (*api.Return, error) {
 
 	updateAssetContract := new(core.UpdateAssetContract)
 
-	updateAssetContract.OwnerAddress = crypto.PubkeyToAddress(ownerKey.
+	updateAssetContract.OwnerAddress = hdwallet.PubkeyToTronAddress(ownerKey.
 		PublicKey).Bytes()
 
 	updateAssetContract.Description = []byte(description)
 	updateAssetContract.Url = []byte(urlStr)
 	updateAssetContract.NewLimit = newLimit
 	updateAssetContract.NewPublicLimit = newPublicLimit
-
-	updateAssetTransaction, err := g.Client.UpdateAsset(timeoutContext(), updateAssetContract)
+	ctx, cancel := ContextTimeout(30)
+	defer cancel()
+	updateAssetTransaction, err := g.Client.UpdateAsset(ctx, updateAssetContract)
 
 	if err != nil {
-		log.Fatalf("update asset issue error: %v", err)
+		return nil, fmt.Errorf("update asset issue error: %v", err)
 	}
 
 	if updateAssetTransaction == nil || len(updateAssetTransaction.
 		GetRawData().GetContract()) == 0 {
-		log.Fatalf("update asset issue error: invalid transaction")
+		return nil, fmt.Errorf("update asset issue error: invalid transaction")
 	}
 
 	util.SignTransaction(updateAssetTransaction, ownerKey)
 
-	result, err := g.Client.BroadcastTransaction(timeoutContext(),
+	return g.Client.BroadcastTransaction(ctx,
 		updateAssetTransaction)
-
-	if err != nil {
-		log.Fatalf("update asset issue error: %v", err)
-	}
-
-	return result
 }

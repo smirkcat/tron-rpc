@@ -1,6 +1,6 @@
 module tron
 
-go 1.15
+go 1.16
 
 require (
 	github.com/BurntSushi/toml v0.3.1
@@ -8,7 +8,6 @@ require (
 	github.com/ethereum/go-ethereum v1.10.16
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/goccy/go-json v0.9.4 // indirect
-	github.com/gofrs/uuid v4.2.0+incompatible
 	github.com/golang/protobuf v1.5.2
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/mattn/go-sqlite3 v1.14.12
@@ -17,12 +16,13 @@ require (
 	github.com/semrush/zenrpc/v2 v2.1.0
 	github.com/shengdoushi/base58 v1.0.0
 	github.com/shopspring/decimal v1.2.0
-	github.com/takama/daemon v1.0.0
+	github.com/smirkcat/hdwallet v0.0.0-20220325043815-d462d0223977
+	github.com/takama/daemon v0.11.0
 	go.uber.org/zap v1.18.1
-	golang.org/x/crypto v0.0.0-20210616213533-5ff15b29337e
-	golang.org/x/sys v0.0.0-20220227234510-4e6760a101f9 // indirect
-	google.golang.org/genproto v0.0.0-20210630183607-d20f26d13c79
-	google.golang.org/grpc v1.39.0
+	golang.org/x/crypto v0.0.0-20220321153916-2c7772ba3064
+	golang.org/x/sys v0.0.0-20220319134239-a9b59b0215f8 // indirect
+	google.golang.org/genproto v0.0.0-20200925023002-c2d885f95484
+	google.golang.org/grpc v1.44.0
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	xorm.io/xorm v1.2.5

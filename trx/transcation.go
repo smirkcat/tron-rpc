@@ -7,17 +7,17 @@ import (
 	"math/big"
 	"time"
 	"tron/api"
-	"tron/common/base58"
-	"tron/common/hexutil"
 	"tron/core"
+	"tron/hexutil"
 	"tron/log"
 	"tron/service"
 
 	wallet "tron/util"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/golang/protobuf/proto"
 	"github.com/shopspring/decimal"
+	"github.com/smirkcat/hdwallet"
+	"google.golang.org/protobuf/proto"
 )
 
 // 每次最多100 个
@@ -119,8 +119,8 @@ func processBlock(block *api.BlockExtention) {
 					log.Errorf("parse Contract %v err: %v", v1, err)
 					continue
 				}
-				form := base58.EncodeCheck(unObj.GetOwnerAddress())
-				to := base58.EncodeCheck(unObj.GetToAddress())
+				form := hdwallet.EncodeCheck(unObj.GetOwnerAddress())
+				to := hdwallet.EncodeCheck(unObj.GetToAddress())
 				processTransaction(node, Trx, txid, form, to, height, unObj.GetAmount(), fee)
 			} else if v1.Type == core.Transaction_Contract_TriggerSmartContract { //调用智能合约
 				// trc20 转账
@@ -131,11 +131,11 @@ func processBlock(block *api.BlockExtention) {
 					continue
 				}
 
-				contract := base58.EncodeCheck(unObj.GetContractAddress())
+				contract := hdwallet.EncodeCheck(unObj.GetContractAddress())
 				if !IsContract(contract) {
 					continue
 				}
-				from := base58.EncodeCheck(unObj.GetOwnerAddress())
+				from := hdwallet.EncodeCheck(unObj.GetOwnerAddress())
 				data := unObj.GetData()
 				// unObj.Data  https://goethereumbook.org/en/transfer-tokens/ 参考eth 操作
 				// 只处理 transfer函数产生的交易
@@ -168,9 +168,9 @@ func processBlock(block *api.BlockExtention) {
 					log.Errorf("parse Contract %v err: %v", v1, err)
 					continue
 				}
-				contract := base58.EncodeCheck(unObj.GetAssetName())
-				form := base58.EncodeCheck(unObj.GetOwnerAddress())
-				to := base58.EncodeCheck(unObj.GetToAddress())
+				contract := hdwallet.EncodeCheck(unObj.GetAssetName())
+				form := hdwallet.EncodeCheck(unObj.GetOwnerAddress())
+				to := hdwallet.EncodeCheck(unObj.GetToAddress())
 				processTransaction(node, contract, txid, form, to, height, unObj.GetAmount(), fee)
 			}
 		}
@@ -181,7 +181,7 @@ func processBlock(block *api.BlockExtention) {
 func processEvenlogData(evenlog *core.TransactionInfo_Log) (contract, from, to string, amount int64, flag bool) {
 	tmpaddr := evenlog.GetAddress()
 	tmpaddr = append([]byte{0x41}, tmpaddr...)
-	contract = base58.EncodeCheck(tmpaddr[:])
+	contract = hdwallet.EncodeCheck(tmpaddr[:])
 	if !IsContract(contract) {
 		return
 	}
@@ -199,8 +199,8 @@ func processEvenlogData(evenlog *core.TransactionInfo_Log) (contract, from, to s
 	}
 	evenlog.Topics[1][11] = 0x41
 	evenlog.Topics[2][11] = 0x41
-	from = base58.EncodeCheck(evenlog.Topics[1][11:])
-	to = base58.EncodeCheck(evenlog.Topics[2][11:])
+	from = hdwallet.EncodeCheck(evenlog.Topics[1][11:])
+	to = hdwallet.EncodeCheck(evenlog.Topics[2][11:])
 
 	return
 }
@@ -223,7 +223,7 @@ func processTransferData(trc20 []byte, from string) (to string, amount int64, fl
 		}
 		// 多1位41
 		trc20[15] = 65 // 0x41
-		to = base58.EncodeCheck(trc20[15:36])
+		to = hdwallet.EncodeCheck(trc20[15:36])
 		amount = new(big.Int).SetBytes(common.TrimLeftZeroes(trc20[36:68])).Int64()
 		// 不在地址范围内 不处理
 		if to == mainAddr || from == mainAddr {
@@ -246,7 +246,7 @@ func processTransferData(trc20 []byte, from string) (to string, amount int64, fl
 // 处理合约转账参数
 func processTransferParameter(to string, amount int64) (data []byte) {
 	methodID, _ := hexutil.Decode("a9059cbb")
-	addr, _ := base58.DecodeCheck(to)
+	addr, _ := hdwallet.DecodeCheck(to)
 	paddedAddress := common.LeftPadBytes(addr[1:], 32)
 	amountBig := new(big.Int).SetInt64(amount)
 	paddedAmount := common.LeftPadBytes(amountBig.Bytes(), 32)
@@ -267,7 +267,7 @@ func processBalanceOfData(trc20 []byte) (amount int64) {
 // 处理合约获取余额参数
 func processBalanceOfParameter(addr string) (data []byte) {
 	methodID, _ := hexutil.Decode("70a08231")
-	add, _ := base58.DecodeCheck(addr)
+	add, _ := hdwallet.DecodeCheck(addr)
 	paddedAddress := common.LeftPadBytes(add[1:], 32)
 	data = append(data, methodID...)
 	data = append(data, paddedAddress...)

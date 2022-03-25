@@ -30,12 +30,17 @@ func (fh OtherParam) TableName() string {
 // Account 账户分配的地址
 type Account struct {
 	ID         int64  `xorm:"'id' pk autoincr"`
-	Address    string `xorm:"'address' unique DEFAULT '' "`       // 唯一索引
-	PublicKey  string `xorm:"'public_key'"  json:"publickey"`     // 公钥新版字段 如果有就是新版
-	PrivateKey string `xorm:"'private_key'" sql:"comment:'地址私钥'"` // 地址私钥
+	Address    string `xorm:"'address' unique DEFAULT '' "`         // 唯一索引
+	PublicKey  string `xorm:"'public_key'"  json:"publickey"`       // 公钥新版字段 如果有就是新版
+	PrivateKey string `xorm:"'private_key'" sql:"comment:'地址私钥'"`   // 地址私钥
+	Index      int    `xorm:"'index' DEFAULT 0" sql:"comment:'位置'"` // 唯一
 	User       string `xorm:"'user'"`
 	Ctime      int64  `xorm:"'ctime'"`                          // 创建时间
 	Amount     int64  `xorm:"'amount' index INTEGER DEFAULT 0"` // 主链币种余额
+}
+
+func (fh Account) TableName() string {
+	return "account"
 }
 
 // Balance  代币余额
@@ -95,7 +100,7 @@ func (db *DB) Sync() error {
 
 // InsertAccount 插入数据
 func (db *DB) InsertAccount(account *Account) (int64, error) {
-	return db.Cols("address", "private_key", "public_key", "user", "ctime", "amount").Insert(account)
+	return db.Cols("address", "private_key", "public_key", "index", "user", "ctime", "amount").Insert(account)
 }
 
 // UpdateAccount 更新数据
@@ -114,6 +119,12 @@ func (db *DB) GetAccountWithAddr(addr string) (*Account, error) {
 		return nil, nil
 	}
 	return &tmp, err
+}
+
+func (db *DB) GetAccountMaxIndex() int {
+	var resp map[string]int
+	db.Table("account").Select("IFNULL(max(index),0) as maxid").Get(&resp)
+	return resp["maxid"]
 }
 
 // GetAccount 获取所有账户

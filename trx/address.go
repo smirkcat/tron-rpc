@@ -1,7 +1,11 @@
 package trx
 
 import (
+	"crypto/ecdsa"
+	"errors"
 	"tron/model"
+
+	"github.com/smirkcat/hdwallet"
 )
 
 func SearchAccount(addr string) (*Account, error) {
@@ -28,4 +32,13 @@ func InitAddressDB(dsn string) {
 	if IsMulti {
 		model.InitDB(dsn)
 	}
+}
+
+func NewPrivateKey() (int, *ecdsa.PrivateKey, error) {
+	if IsMulti {
+		return 0, nil, errors.New("not suppot new addr is_multi true ")
+	}
+	index := dbengine.GetAccountMaxIndex() + 1
+	ac, err := hdwallet.NewPrivateKeyIndex(index)
+	return index, ac, err
 }

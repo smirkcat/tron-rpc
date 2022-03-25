@@ -14,6 +14,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/shopspring/decimal"
+	"github.com/smirkcat/hdwallet"
 )
 
 var ctx, canceltask = context.WithCancel(context.Background())
@@ -56,6 +57,22 @@ func getCurrentDirectory() string {
 		return "."
 	}
 	return strings.Replace(dir, "\\", "/", -1)
+}
+
+func InitSeed() {
+	if globalConf.Seed != "" {
+		hdwallet.Decrypt(globalConf.Seed, globalConf.SeedPri)
+		hdwallet.InitHdwallet(globalConf.Seed)
+	}
+}
+
+// InitLog 初始化日志文件
+func InitLog() {
+	var logConfigInfoName, logConfigErrorName, logLevel string
+	logConfigInfoName = curr + "tron.log"
+	logConfigErrorName = curr + "tron-err.log"
+	logLevel = globalConf.LogLevel
+	log.Init(logConfigInfoName, logConfigErrorName, logLevel)
 }
 
 func InitConfig() {
@@ -147,6 +164,7 @@ func Init() {
 	InitContract(globalConf.Contracts)
 	InitMainAndFee()
 	InitWalletInfo()
+	InitSeed()
 	task()
 }
 
@@ -217,11 +235,14 @@ func getConfig() []byte {
 	return []byte(`
 # grpc.trongrid.io:50051 正式
 # grpc.shasta.trongrid.io:50051 测试
+# 其他主节点 https://cn.developers.tron.network/docs/官方公共节点
 [client]
 nodeTrx="grpc.trongrid.io:50051"
 main_addr="TQCknYutmcMxGoq32JqQWvn1MzyRfuQirC" #主钱包地址
 password="eb1804aa-fa7d-4782-8145-afe4da83c56d" #主钱包秘钥加密前的密码 uuid
 main_pri="" #主钱包地址加密私钥
+seed=""
+seed_pri=""
 db_addr="D:/go/tron/trx/tron.db"
 port="8245"
 logLevel="info" # 日志等级默认
@@ -229,6 +250,7 @@ count=3 #批量查询交易记录个数
 feelimit=5000000 # 每次转账trc20合约燃烧的能量 单位sun 默认5trx
 perfee=5 # 每次归集每个合约需要手续费消耗
 minfee=5 # 每个地址至少保留多少trx手续费
+is_multi = false
 
 # 合约配置 
 [[contract]]

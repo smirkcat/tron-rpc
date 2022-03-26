@@ -29,7 +29,7 @@ func HandleSystemSignal(sigChan chan os.Signal, cf CloseFunc) {
 
 // Charge 服务操作
 func Charge(name, description string) {
-	srv, err := daemon.New(name, description)
+	srv, err := daemon.New(name, description, daemon.SystemDaemon)
 	if err != nil {
 		fmt.Println("Error: ", err)
 		os.Exit(1)

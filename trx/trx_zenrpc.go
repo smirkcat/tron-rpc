@@ -34,7 +34,55 @@ func (Service) SMD() smd.ServiceInfo {
 					Description: ``,
 					Optional:    false,
 					Type:        smd.Object,
-					Properties:  map[string]smd.Property{},
+					Properties: map[string]smd.Property{
+						"Version": {
+							Description: ``,
+							Type:        smd.Integer,
+						},
+						"ProtocolVersion": {
+							Description: ``,
+							Type:        smd.Integer,
+						},
+						"WalletVersion": {
+							Description: ``,
+							Type:        smd.Integer,
+						},
+						"Balance": {
+							Description: ``,
+							Ref:         "#/definitions/json.Number",
+							Type:        smd.Object,
+						},
+						"Difficulty": {
+							Description: ``,
+							Type:        smd.Integer,
+						},
+						"BlockHeight": {
+							Description: ``,
+							Type:        smd.Integer,
+						},
+						"Blocks": {
+							Description: ``,
+							Type:        smd.Integer,
+						},
+						"Connections": {
+							Description: ``,
+							Type:        smd.Integer,
+						},
+						"TimeOffset": {
+							Description: ``,
+							Type:        smd.Integer,
+						},
+						"Time": {
+							Description: ``,
+							Type:        smd.Integer,
+						},
+					},
+					Definitions: map[string]smd.Definition{
+						"json.Number": {
+							Type:       "object",
+							Properties: map[string]smd.Property{},
+						},
+					},
 				},
 			},
 			"GetNewAddress": {
@@ -60,7 +108,12 @@ func (Service) SMD() smd.ServiceInfo {
 					Description: ``,
 					Optional:    false,
 					Type:        smd.Object,
-					Properties:  map[string]smd.Property{},
+					Properties: map[string]smd.Property{
+						"isvalid": {
+							Description: ``,
+							Type:        smd.Boolean,
+						},
+					},
 				},
 			},
 			"ListTransactions": {
@@ -94,6 +147,77 @@ func (Service) SMD() smd.ServiceInfo {
 					},
 					Definitions: map[string]smd.Definition{
 						"util.Transactions": {
+							Type: "object",
+							Properties: map[string]smd.Property{
+								"account": {
+									Description: ``,
+									Type:        smd.String,
+								},
+								"txid": {
+									Description: ``,
+									Type:        smd.String,
+								},
+								"address": {
+									Description: ``,
+									Type:        smd.String,
+								},
+								"publickey": {
+									Description: `公钥新版字段 如果有就是新版`,
+									Type:        smd.String,
+								},
+								"fromaddress": {
+									Description: ``,
+									Type:        smd.String,
+								},
+								"category": {
+									Description: ``,
+									Type:        smd.String,
+								},
+								"amount": {
+									Description: ``,
+									Ref:         "#/definitions/json.Number",
+									Type:        smd.Object,
+								},
+								"fee": {
+									Description: ``,
+									Ref:         "#/definitions/json.Number",
+									Type:        smd.Object,
+								},
+								"vout": {
+									Description: ``,
+									Type:        smd.Integer,
+								},
+								"confirmations": {
+									Description: ``,
+									Type:        smd.Integer,
+								},
+								"generated": {
+									Description: ``,
+									Type:        smd.Boolean,
+								},
+								"blockhash": {
+									Description: ``,
+									Type:        smd.String,
+								},
+								"blockindex": {
+									Description: ``,
+									Type:        smd.Integer,
+								},
+								"blocktime": {
+									Description: ``,
+									Type:        smd.Integer,
+								},
+								"time": {
+									Description: ``,
+									Type:        smd.Integer,
+								},
+								"timereceived": {
+									Description: ``,
+									Type:        smd.Integer,
+								},
+							},
+						},
+						"json.Number": {
 							Type:       "object",
 							Properties: map[string]smd.Property{},
 						},
@@ -148,8 +272,57 @@ func (Service) SMD() smd.ServiceInfo {
 					},
 					Definitions: map[string]smd.Definition{
 						"util.SummaryData": {
-							Type:       "object",
-							Properties: map[string]smd.Property{},
+							Type: "object",
+							Properties: map[string]smd.Property{
+								"txid": {
+									Description: ``,
+									Type:        smd.String,
+								},
+								"account": {
+									Description: ``,
+									Type:        smd.String,
+								},
+								"address": {
+									Description: ``,
+									Type:        smd.String,
+								},
+								"publickey": {
+									Description: `公钥新版字段 如果有就是新版`,
+									Type:        smd.String,
+								},
+								"fromaddress": {
+									Description: ``,
+									Type:        smd.String,
+								},
+								"amount": {
+									Description: ``,
+									Type:        smd.String,
+								},
+								"blockindex": {
+									Description: ``,
+									Type:        smd.Integer,
+								},
+								"blocktime": {
+									Description: ``,
+									Type:        smd.Integer,
+								},
+								"category": {
+									Description: ``,
+									Type:        smd.String,
+								},
+								"fee": {
+									Description: ``,
+									Type:        smd.String,
+								},
+								"time": {
+									Description: ``,
+									Type:        smd.Integer,
+								},
+								"timeReceived": {
+									Description: ``,
+									Type:        smd.Integer,
+								},
+							},
 						},
 					},
 				},

@@ -9,9 +9,11 @@
 注：clone之后需更新子模块  
 git submodule update --init --recursive
 
+**本程序不能直接启动，为了安全，需要自己配置主钱包地址，加密私钥等相关参数**
+
 
 ### 合约发布网站
 
-https://cn.developers.tron.network/docs/发行trc20代币教程
+https://cn.developers.tron.network/docs/issuing-trc20-tokens-tutorial
 
 [*change log*](CHANGELOG.md)

@@ -5,5 +5,4 @@
 program
 *.json
 *.txt
-trx/key_store
 tron

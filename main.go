@@ -12,7 +12,7 @@ import (
 const (
 	// name of the service
 	name        = "tronrpc"
-	description = "trx contract rpcservice"
+	description = "tron contract rpcservice"
 )
 
 var sigChan = make(chan os.Signal, 1) //用于系统信息接收处理的通道
@@ -36,7 +36,7 @@ var (
 )
 
 // Version .
-const Version = "tronrpc Version --v0.2.3"
+const Version = "tronrpc version --v1.0.0"
 
 func timePrint() string {
 	return time.Now().Local().Format("2006-01-02T15:04:05.000Z07:00")

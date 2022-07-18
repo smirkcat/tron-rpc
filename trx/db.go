@@ -123,7 +123,7 @@ func (db *DB) GetAccountWithAddr(addr string) (*Account, error) {
 
 func (db *DB) GetAccountMaxIndex() int {
 	var resp map[string]int
-	db.Table("account").Select("IFNULL(max(index),0) as maxid").Get(&resp)
+	db.Table("account").Select("IFNULL(max(`index`),0) as maxid").Get(&resp)
 	return resp["maxid"]
 }
 

@@ -49,10 +49,6 @@ type AddressMulti struct {
 	Account     string `xorm:"'account'" sql:"comment:'地址标签'"` // 可能加秘钥或者其他注释
 	EthAddress  string `xorm:"'eth_address'" sql:"comment:'ETH系列地址'"`
 	TronAddress string `xorm:"'tron_address'" sql:"comment:'Tron系列地址'"`
-	Ext         string `xorm:"'ext'" sql:"comment:'拓展字段'"`
-	Index       int    `xorm:"'index'" sql:"comment:'位置'"` // 唯一
-	Status      uint8  `xorm:"'status'" sql:"comment:'是否已经推送'"`
-	CreateTime  int64  `xorm:"'create_time'" sql:"comment:'创建时间'"`
 }
 
 func (AddressMulti) TableName() string {
@@ -62,8 +58,8 @@ func (AddressMulti) TableName() string {
 // GetUsedOfAddress 查询某个币种地址存在否
 func GetUsedOfAddressMulti(coinName, address string) (AddressMulti, error) {
 	var resp AddressMulti
-	err := dbengine.Table(TN_ADDRESS_multi).Select("*").
-		Where("? = ?", coinName+"_address", address).Find(&resp)
+	_, err := dbengine.Table(TN_ADDRESS_multi).Select("*").
+		Where(coinName+"_address = ?", address).Get(&resp)
 	return resp, err
 }
 
@@ -71,7 +67,7 @@ func GetUsedOfAddressMulti(coinName, address string) (AddressMulti, error) {
 func GetUsedOfPrivateKey(pri string) AddressMulti {
 	var resp AddressMulti
 	dbengine.Table(TN_ADDRESS_multi).Select("*").
-		Where("private_key = ", pri).Find(&resp)
+		Where("private_key = ", pri).Get(&resp)
 	return resp
 }
 
@@ -79,6 +75,6 @@ func GetUsedOfPrivateKey(pri string) AddressMulti {
 func GetUsedOfPublickey(pub string) AddressMulti {
 	var resp AddressMulti
 	dbengine.Table(TN_ADDRESS_multi).Select("*").
-		Where("public_key = ", pub).Find(&resp)
+		Where("public_key = ", pub).Get(&resp)
 	return resp
 }

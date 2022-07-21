@@ -70,7 +70,7 @@ func RunTransaction() {
 	}
 }
 
-// 新版成交归集检测
+// 成交归集检测
 func collectall(addr string) {
 	// 成交归集检测
 	_, err := loadAccount(addr)
@@ -132,11 +132,11 @@ func collectall(addr string) {
 			txid, err := sendIn(contract, addr, v)
 			if err != nil {
 				// 有可能是成功了的
-				log.Errorf("collect contract %s addr %s err: %s", contract, addr, err.Error())
+				log.Errorf("contract %s addr %s the collect txid: %s err: %s", contract, addr, txid, err.Error())
 			} else {
 				log.Infof("contract %s addr %s the collect txid: %s", contract, addr, txid)
 			}
-			time.Sleep(6 * time.Second)
+			time.Sleep(10 * time.Second)
 			amount, err := getBalanceByAddress(contract, addr)
 			if err != nil {
 				log.Errorf("getBalance contract %s addr %s err: %s", contract, addr, err.Error())
@@ -174,6 +174,23 @@ func collectall(addr string) {
 		} else {
 			log.Infof("trx  addr %s the collect txid: %s", addr, txid)
 		}
+		time.Sleep(10 * time.Second)
+		amounttrx, err = getBalanceByAddress("", addr)
+		if err != nil {
+			log.Errorf("getBalance trx %s addr %s err: %s", addr, err.Error())
+			return
+		}
+	}
+	// 更新余额
+	amountac, _ := amounttrx.Mul(decimal.New(1, 6)).Float64()
+	var tmp = &Balance{
+		Address:  addr,
+		Contract: "",
+		Amount:   int64(amountac),
+	}
+	_, err = dbengine.InsertBalance(tmp)
+	if err != nil {
+		log.Errorf("UpdateBalance %v err: %s", *tmp, err)
 	}
 }
 
@@ -184,15 +201,64 @@ func RunCollect() {
 	var wgcollect sync.WaitGroup // 保持等待所有任务结束
 	defer wgcollect.Wait()
 	count := 1000
+	var minAmountv int64
+
+	for _, v := range mapContract {
+		var startid int64
+		tmp, _ := v.CollectionMinAmount.Mul(decimal.New(1, v.Decimal)).Float64()
+		minAmountv = int64(tmp)
+		for {
+			addr, err := dbengine.GetAccountWithContractBalance(v.Contract, minAmountv, startid, count)
+			if err != nil {
+				log.Errorf("GetAccountWithContractBalance err:%v", err)
+				select {
+				case <-ctx.Done():
+					return
+				default:
+				}
+				break
+			}
+			var lens = len(addr)
+			log.Infof("collect Contract %s nums %d", v.Contract, lens)
+			for i := 0; i < lens; i++ {
+				startid = addr[i].ID
+				wgcollect.Add(1)
+				task <- true
+				go func(k int) {
+					collectall(addr[k].Address)
+					wgcollect.Done()
+					<-task
+				}(i)
+				select {
+				case <-ctx.Done():
+					return
+				default:
+				}
+			}
+			if lens < count {
+				break
+			}
+			time.Sleep(time.Second)
+		}
+		time.Sleep(time.Second)
+	}
+
 	var id int64 = 0
+	tmp, _ := minAmount.Mul(decimal.New(1, 6)).Float64()
+	minAmountv = int64(tmp)
 	for {
-		// trx 归集检测 每次检测1000个满足条件的 然后等待下次检测
-		addr, err := dbengine.GetAccountWithBalance(id, count)
+		addr, err := dbengine.GetAccountWithContractBalance("", minAmountv, id, count)
 		if err != nil {
-			log.Errorf("GetAccountWithBalance err:%s", err)
+			log.Errorf("GetAccountWithContractBalance err:%v", err)
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+			break
 		}
 		var lens = len(addr)
-		log.Infof("GetAccountWithBalance startid %d lens %d", id, lens)
+		log.Infof("collect trx nums %d", lens)
 		if lens < 1 {
 			return
 		}

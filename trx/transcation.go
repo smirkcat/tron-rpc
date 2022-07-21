@@ -148,7 +148,6 @@ func processBlock(block *api.BlockExtention) {
 					if transinfo == nil {
 						continue
 					}
-
 					fee = transinfo.GetFee()
 					// 处理 evenlog 合约转账，如有些合约发起转账并不是全部到账
 					// https://tronscan.org/#/address/TWsZk6fs7UisoJAFXiMDXk9aF4PPRzVywZ/transfers
@@ -201,7 +200,7 @@ func processEvenlogData(evenlog *core.TransactionInfo_Log) (contract, from, to s
 	evenlog.Topics[2][11] = 0x41
 	from = hdwallet.EncodeCheck(evenlog.Topics[1][11:])
 	to = hdwallet.EncodeCheck(evenlog.Topics[2][11:])
-
+	flag = true
 	return
 }
 

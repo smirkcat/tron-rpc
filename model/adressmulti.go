@@ -47,7 +47,6 @@ type AddressMulti struct {
 	PrivateKey  string `xorm:"'private_key'" sql:"comment:'地址私钥'"` // 唯一性 加密
 	PublicKey   string `xorm:"'public_key'" sql:"comment:'地址公钥'"`
 	Account     string `xorm:"'account'" sql:"comment:'地址标签'"` // 可能加秘钥或者其他注释
-	EthAddress  string `xorm:"'eth_address'" sql:"comment:'ETH系列地址'"`
 	TronAddress string `xorm:"'tron_address'" sql:"comment:'Tron系列地址'"`
 }
 

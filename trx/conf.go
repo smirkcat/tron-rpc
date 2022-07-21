@@ -33,6 +33,7 @@ type Client struct {
 	Feelimit    int64           `toml:"feelimit"`      // 转账合约消耗sun个数 建议设置5000000
 	PerFee      decimal.Decimal `toml:"perfee"`        // 每次归集每个合约需要手续费消耗
 	MinFee      decimal.Decimal `toml:"minfee"`        // 每个地址至少保留多少trx手续费
+	IsMulti     bool            `toml:"is_multi"`      // 是否采用外部地址
 }
 
 // Scantraderecord 扫描交易记录配置

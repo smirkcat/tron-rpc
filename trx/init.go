@@ -87,6 +87,8 @@ func InitConfig() {
 		port = globalConf.Client.Port
 	}
 
+	IsMulti = globalConf.IsMulti
+
 	minAmount = globalConf.Collection.MinAmount
 
 	minScanBlock = globalConf.Scantraderecord.MinScanBlock
@@ -243,7 +245,7 @@ password="eb1804aa-fa7d-4782-8145-afe4da83c56d" #主钱包秘钥加密前的密�
 main_pri="" #主钱包地址加密私钥
 seed=""
 seed_pri=""
-db_addr="D:/go/tron/trx/tron.db"
+db_addr="tron.db"
 port="8245"
 logLevel="info" # 日志等级默认
 count=3 #批量查询交易记录个数

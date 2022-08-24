@@ -39,6 +39,7 @@ func TestDB(t *testing.T) {
 }
 
 func TestCreatAccount(t *testing.T) {
+	curr = "./"
 	Init()
 	addr, err := creataddress()
 	if err != nil {
@@ -55,33 +56,32 @@ func TestCreatAccount(t *testing.T) {
 }
 
 func TestValid(t *testing.T) {
-	t.Log(validaddress("TDRPyn57F4riYTJFcHaQbrzgFaGe8HSumL"))
+	t.Log(validaddress("TL4kyKaXJ9gThBhHtyMSN4ZMKSaD5cZUGL"))
 }
 
 func TestNowHeight(t *testing.T) {
+	curr = "./"
 	Init()
-	//getBlockHeight()
-	//getBlockWithHeight(991186)
-	t.Log(getBlockWithHeight(15003338))
-	//getBlockWithHeight(991186)
-	//t.Log(getBlockWithHeights(1075923, 1076023))
+	t.Log(getBlockWithHeight(43578000))
 }
 
 func TestGetWalletInfo(t *testing.T) {
+	curr = "./"
 	Init()
 	//t.Log(getNodeInfo())
-	t.Log(getBalanceByAddress("", "TAUN6FwrnwwmaEqYcckffC7wYmbaS6cBiX"))
+	t.Log(getBalanceByAddress("", "TL4kyKaXJ9gThBhHtyMSN4ZMKSaD5cZUGL"))
 }
 
 func TestMain(t *testing.T) {
+	curr = "./"
 	Init()
 	select {}
 }
 
 func TestTrans(t *testing.T) {
+	curr = "./"
 	Init()
-	t.Log("fdhjhjd")
-	txid, err := sendIn("trx", "TLVYpQH98E9hQXDTgAbnCLwTWquaupxz3T", decimal.NewFromFloat(0.01001))
+	txid, err := sendIn("trx", "TL4kyKaXJ9gThBhHtyMSN4ZMKSaD5cZUGL", decimal.NewFromFloat(0.01001))
 	if err != nil {
 		t.Log(err)
 	}
@@ -89,13 +89,13 @@ func TestTrans(t *testing.T) {
 }
 
 func TestContractBalanceTrc20(t *testing.T) {
+	curr = "./"
 	Init()
-	t.Log(getTrc20BalanceByAddress("TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t", "TLXgWgXnJZVjL46Qyju52n6QVJRUQBoZyU", mainAccout))
+	t.Log(getTrc20BalanceByAddress("TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t", "TL4kyKaXJ9gThBhHtyMSN4ZMKSaD5cZUGL", mainAccout))
 }
 
 func TestNode(t *testing.T) {
-	// 14.104.81.238:54004
-	node := newGrpcClient("14.104.83.38:54004")
+	node := newGrpcClient("grpc.trongrid.io:50051")
 	err := node.Start()
 	if err != nil {
 		t.Log(err)

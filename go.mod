@@ -3,8 +3,8 @@ module tron
 go 1.17
 
 require (
-	github.com/BurntSushi/toml v1.1.0
-	github.com/ethereum/go-ethereum v1.10.21
+	github.com/BurntSushi/toml v1.2.0
+	github.com/ethereum/go-ethereum v1.10.22
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/mattn/go-sqlite3 v1.14.12
 	github.com/semrush/zenrpc/v2 v2.1.1
@@ -12,7 +12,7 @@ require (
 	github.com/smirkcat/hdwallet v0.0.0-20220325043815-d462d0223977
 	github.com/takama/daemon v1.0.0
 	go.uber.org/zap v1.21.0
-	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa
+	golang.org/x/crypto v0.0.0-20220817201139-bc19a97f63c8
 	google.golang.org/genproto v0.0.0-20200925023002-c2d885f95484
 	google.golang.org/grpc v1.44.0
 	google.golang.org/protobuf v1.27.1
@@ -26,7 +26,7 @@ require (
 	github.com/btcsuite/btcd/btcec/v2 v2.2.1 // indirect
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
-	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.1 // indirect
+	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.1.0 // indirect
 	github.com/goccy/go-json v0.9.4 // indirect
 	github.com/gofrs/uuid v4.2.0+incompatible // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
@@ -47,7 +47,7 @@ require (
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
 	golang.org/x/net v0.0.0-20220607020251-c690dde0001d // indirect
-	golang.org/x/sys v0.0.0-20220811171246-fbc7d0a398ab // indirect
+	golang.org/x/sys v0.0.0-20220823224334-20c2bfdbfe24 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	xorm.io/builder v0.3.9 // indirect
 )

@@ -15,10 +15,10 @@ seed_pri=""
 db_addr="tron.db"
 port="8245"
 logLevel="info" # 日志等级默认
-count=1 #批量查询交易记录个数
-feelimit=10000000 # 每次转账trc20合约燃烧的能量 单位sun 默认5trx
-perfee=10 # 每次归集每个合约需要手续费消耗
-minfee=5 # 每个地址至少保留多少trx手续费
+count=1 #批量查询交易记录个数 这里为了提高容错性只能是1
+feelimit=60000000 # 每次转账trc20合约燃烧的能量 单位sun 默认5trx
+perfee=60 # 每次归集每个合约需要手续费消耗
+minfee=30 # 每个地址至少保留多少trx手续费
 is_multi = false
 
 # 合约配置
@@ -47,5 +47,5 @@ min_amount=100 # trx最小归集钱包余额 单位TRX 后面 6个零 1TRX =10^6
 time_interval_sec=15 # 扫描交易记录检测间隔 单位秒
 # 扫描交易记录起始位置 如果配置为正数 取最大值开始扫描
 # 如果为负数 则取绝对值 从绝对值位置开始扫描，不取最大值开始扫描
-min_scan_block = 43578000
-goroutine_num=8 # 每次扫描开的协程数量 每个协程扫描能一次扫描100个块 是很快的 tron 3秒更新一次块 完全很快就追上了
+min_scan_block = 58737696
+goroutine_num=8 # 每次扫描开的协程数量

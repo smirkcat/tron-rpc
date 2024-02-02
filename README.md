@@ -10,9 +10,10 @@
 git submodule update --init --recursive  
 **为了安全，需要自己配置主钱包地址，加密私钥等相关参数**
 
-### 合约发布网站
+### 合约发布
 
-https://cn.developers.tron.network/docs/issuing-trc20-tokens-tutorial
+文档，中文文档已经无法查看，需要管理员登录，请直接查看英文文档
+https://developers.tron.network/docs/creating-and-compiling
 
 [*change log*](CHANGELOG.md)
 

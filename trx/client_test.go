@@ -7,6 +7,9 @@ import (
 	"github.com/smirkcat/hdwallet"
 )
 
+func init() {
+	curr = "./"
+}
 func TestCreatAddress(t *testing.T) {
 	var uuidv4 = hdwallet.GenPwd()
 	pwd := hdwallet.HashAndSalt([]byte(uuidv4))
@@ -39,7 +42,6 @@ func TestDB(t *testing.T) {
 }
 
 func TestCreatAccount(t *testing.T) {
-	curr = "./"
 	Init()
 	addr, err := creataddress()
 	if err != nil {
@@ -60,26 +62,22 @@ func TestValid(t *testing.T) {
 }
 
 func TestNowHeight(t *testing.T) {
-	curr = "./"
 	Init()
 	t.Log(getBlockWithHeight(43578000))
 }
 
 func TestGetWalletInfo(t *testing.T) {
-	curr = "./"
 	Init()
 	//t.Log(getNodeInfo())
 	t.Log(getBalanceByAddress("", "TL4kyKaXJ9gThBhHtyMSN4ZMKSaD5cZUGL"))
 }
 
 func TestMain(t *testing.T) {
-	curr = "./"
 	Init()
 	select {}
 }
 
 func TestTrans(t *testing.T) {
-	curr = "./"
 	Init()
 	txid, err := sendIn("trx", "TL4kyKaXJ9gThBhHtyMSN4ZMKSaD5cZUGL", decimal.NewFromFloat(0.01001))
 	if err != nil {
@@ -89,7 +87,6 @@ func TestTrans(t *testing.T) {
 }
 
 func TestContractBalanceTrc20(t *testing.T) {
-	curr = "./"
 	Init()
 	t.Log(getTrc20BalanceByAddress("TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t", "TL4kyKaXJ9gThBhHtyMSN4ZMKSaD5cZUGL", mainAccout))
 }

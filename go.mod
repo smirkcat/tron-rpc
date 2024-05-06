@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/BurntSushi/toml v1.3.2
-	github.com/ethereum/go-ethereum v1.13.11
+	github.com/ethereum/go-ethereum v1.13.15
 	github.com/go-sql-driver/mysql v1.7.1
 	github.com/mattn/go-sqlite3 v1.14.21
 	github.com/semrush/zenrpc/v2 v2.1.1
@@ -12,7 +12,7 @@ require (
 	github.com/smirkcat/hdwallet v0.0.0-20240202015538-b4b7e122f82e
 	github.com/takama/daemon v1.0.0
 	go.uber.org/zap v1.26.0
-	golang.org/x/crypto v0.18.0
+	golang.org/x/crypto v0.18.0 // indirect
 	google.golang.org/genproto v0.0.0-20240125205218-1f4bbc51befe // indirect
 	google.golang.org/grpc v1.61.0
 	google.golang.org/protobuf v1.32.0

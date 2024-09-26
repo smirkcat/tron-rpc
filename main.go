@@ -29,14 +29,14 @@ func main() {
 	<-exit
 }
 
-// go build -ldflags "-X \"main.BuildDate=%BUILD_DATE%\""
+// go build -ldflags  "-X \"main.BuildVersion=%COMMIT_HASH%\" -X \"main.BuildDate=%BUILD_DATE%\""
 var (
 	BuildVersion string
 	BuildDate    string
 )
 
 // Version .
-const Version = "tronrpc version --v1.0.0"
+const Version = "tronrpc version --v1.1.0"
 
 func timePrint() string {
 	return time.Now().Local().Format("2006-01-02T15:04:05.000Z07:00")
@@ -52,7 +52,7 @@ func sufFun() {
 	fmt.Printf("tronrpc exit, time=%s\n", timePrint())
 }
 
-//显示版本信息
+// 显示版本信息
 func showVersion() {
 	if len(os.Args) < 2 {
 		return

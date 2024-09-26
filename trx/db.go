@@ -3,7 +3,7 @@ package trx
 import (
 	"strconv"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 	"xorm.io/xorm"
 )
 
@@ -87,7 +87,7 @@ func (db *DB) Session() *xorm.Session {
 
 // NewDB 初始化数据库
 func NewDB(url string) (*DB, error) {
-	engine, err := xorm.NewEngine("sqlite3", url)
+	engine, err := xorm.NewEngine("sqlite", url)
 	return &DB{
 		Engine: engine,
 	}, err

@@ -4,7 +4,7 @@ go 1.23
 
 require (
 	github.com/BurntSushi/toml v1.3.2
-	github.com/ethereum/go-ethereum v1.14.9
+	github.com/ethereum/go-ethereum v1.14.13
 	github.com/go-sql-driver/mysql v1.7.1
 	github.com/semrush/zenrpc/v2 v2.1.1
 	github.com/shopspring/decimal v1.3.1
